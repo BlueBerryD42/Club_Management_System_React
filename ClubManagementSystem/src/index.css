@@ -9,7 +9,7 @@
     /* Primary - Deep Blue (Trust, Education) */
     --primary: 220 70% 50%;
     --primary-foreground: 0 0% 100%;
-    
+
     /* Background */
     --background: 210 40% 98%;
     --foreground: 220 30% 15%;
@@ -80,7 +80,7 @@
   .dark {
     --primary: 220 70% 60%;
     --primary-foreground: 220 30% 10%;
-    
+
     --background: 220 30% 8%;
     --foreground: 220 20% 95%;
 
@@ -161,35 +161,70 @@
   }
 
   .text-gradient {
-    @apply bg-clip-text text-transparent;
     background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 }
 
 /* Custom Animations */
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px hsl(220 70% 50% / 0.3); }
-  50% { box-shadow: 0 0 40px hsl(220 70% 50% / 0.5); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px hsl(220 70% 50% / 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 40px hsl(220 70% 50% / 0.5);
+  }
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .animate-float {
@@ -213,8 +248,22 @@
 }
 
 /* Stagger animations */
-.stagger-1 { animation-delay: 0.1s; }
-.stagger-2 { animation-delay: 0.2s; }
-.stagger-3 { animation-delay: 0.3s; }
-.stagger-4 { animation-delay: 0.4s; }
-.stagger-5 { animation-delay: 0.5s; }
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+
+.stagger-4 {
+  animation-delay: 0.4s;
+}
+
+.stagger-5 {
+  animation-delay: 0.5s;
+}
