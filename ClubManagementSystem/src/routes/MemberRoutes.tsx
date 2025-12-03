@@ -6,7 +6,7 @@ import MemberLayout from '@/layouts/MemberLayout';
 const MemberProfile = () => <div>Member Profile</div>;
 
 const MemberRoutes: RouteObject = {
-    path: 'member',
+    path: '/member',
     element: (
         <ProtectedRoute allowedRoles={['MEMBER']}>
             <MemberLayout />

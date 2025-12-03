@@ -6,7 +6,7 @@ import ClubLeaderLayout from '@/layouts/ClubLeaderLayout';
 const ClubLeaderDashboard = () => <div>Club Leader Dashboard</div>;
 
 const ClubLeaderRoutes: RouteObject = {
-    path: 'club-leader',
+    path: '/club-leader',
     element: (
         <ProtectedRoute allowedRoles={['CLUB_LEADER']}>
             <ClubLeaderLayout />

@@ -1,19 +1,24 @@
 import type { RouteObject } from 'react-router-dom';
-import HomePage from '@/pages/HomePage';
+import Index from '../pages/HomePage';
 import LoginPage from '@/pages/auth/LoginPage';
+import RegisterPage from '@/pages/auth/RegisterPage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
 
 const PublicRoutes: RouteObject[] = [
     {
-        index: true,
-        element: <HomePage />,
+        path: '/',
+        element: <Index />,
     },
     {
-        path: 'login',
+        path: '/login',
         element: <LoginPage />,
     },
     {
-        path: 'unauthorized',
+        path: '/register',
+        element: <RegisterPage />,
+    },
+    {
+        path: '/unauthorized',
         element: <UnauthorizedPage />,
     },
 ];

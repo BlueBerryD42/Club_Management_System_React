@@ -5,7 +5,7 @@ import DashboardPage from '@/pages/admin/DashboardPage';
 import AdminLayout from '@/layouts/AdminLayout';
 
 const AdminRoutes: RouteObject = {
-    path: 'admin',
+    path: '/admin',
     element: (
         <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminLayout />
