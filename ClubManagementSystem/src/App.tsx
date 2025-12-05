@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Index from "./pages/HomePage";
 import Clubs from "./pages/mainlayout/Clubs";
 import ClubDetail from "./pages/mainlayout/ClubDetail";
@@ -17,37 +17,74 @@ import MyEvents from "./pages/student/MyEvents";
 import Fees from "./pages/student/Fees";
 import NotFound from "./pages/mainlayout/NotFound";
 import StaffRoutes from "./routes/StaffRoutes";
+import AdminRoutes from "./routes/AdminRoutes";
 
 const queryClient = new QueryClient();
 
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Index />,
+  },
+  {
+    path: "/clubs",
+    element: <Clubs />,
+  },
+  {
+    path: "/clubs/:id",
+    element: <ClubDetail />,
+  },
+  {
+    path: "/events",
+    element: <Events />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
+  },
+  {
+    path: "/register",
+    element: <Register />,
+  },
+  {
+    path: "/about",
+    element: <About />,
+  },
+  {
+    path: "/dashboard",
+    element: <Dashboard />,
+  },
+  {
+    path: "/profile",
+    element: <Profile />,
+  },
+  {
+    path: "/my-clubs",
+    element: <MyClubs />,
+  },
+  {
+    path: "/my-events",
+    element: <MyEvents />,
+  },
+  {
+    path: "/fees",
+    element: <Fees />,
+  },
+  StaffRoutes,
+  AdminRoutes,
+  {
+    path: "*",
+    element: <NotFound />,
+  },
+]);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/clubs" element={<Clubs />} />
-            <Route path="/clubs/:id" element={<ClubDetail />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/my-clubs" element={<MyClubs />} />
-            <Route path="/my-events" element={<MyEvents />} />
-            <Route path="/fees" element={<Fees />} />
-            
-            {/* Staff Routes */}
-            <Route path="/staff/*" element={<StaffRoutes />} />
-
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <RouterProvider router={router} />
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
