@@ -1,9 +1,11 @@
 import type { RouteObject } from 'react-router-dom';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import MemberLayout from '@/layouts/MemberLayout';
-
-// Placeholder page
-const MemberProfile = () => <div>Member Profile</div>;
+import Dashboard from '@/pages/student/Dashboard';
+import Profile from '@/pages/student/Profile';
+import MyClubs from '@/pages/student/MyClubs';
+import MyEvents from '@/pages/student/MyEvents';
+import Fees from '@/pages/student/Fees';
 
 const MemberRoutes: RouteObject = {
     path: '/member',
@@ -14,8 +16,24 @@ const MemberRoutes: RouteObject = {
     ),
     children: [
         {
+            path: 'dashboard',
+            element: <Dashboard />,
+        },
+        {
             path: 'profile',
-            element: <MemberProfile />,
+            element: <Profile />,
+        },
+        {
+            path: 'my-clubs',
+            element: <MyClubs />,
+        },
+        {
+            path: 'my-events',
+            element: <MyEvents />,
+        },
+        {
+            path: 'fees',
+            element: <Fees />,
         },
     ],
 };
