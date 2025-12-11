@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Upload, FileSpreadsheet, Trash2, Plus, ArrowLeft, Loader2, Info, DollarSign } from 'lucide-react';
+import { FileSpreadsheet, Trash2, Plus, ArrowLeft, Loader2, Info, DollarSign, Crown, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
@@ -35,8 +35,15 @@ import {
 } from "@/components/ui/table";
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { formatVND } from '@/lib/utils';
 
 // --- Schema Definitions ---
 
@@ -46,8 +53,8 @@ const memberSchema = z.object({
   role: z.enum(["leader", "treasurer", "member"]),
 });
 
-const createClubSchema = z.object({
-  name: z.string().min(5, "Tên CLB phải có ít nhất 5 ký tự"),
+const baseClubSchema = z.object({
+  name: z.string().min(3, "Tên CLB phải có ít nhất 3 ký tự"),
   category: z.string().min(1, "Vui lòng chọn lĩnh vực"),
   type: z.enum(["free", "paid"]),
   membershipFee: z.coerce.number().optional(),
@@ -62,6 +69,42 @@ const createClubSchema = z.object({
   .refine((members) => {
     return members.filter(m => m.role === 'treasurer').length === 1;
   }, { message: "Phải có đúng 1 Thủ quỹ (Treasurer)." })
+  .superRefine((members, ctx) => {
+    const emailCounts = new Map<string, number[]>();
+    
+    // Find duplicates
+    members.forEach((member, index) => {
+      const email = member.email.toLowerCase();
+      if (email) {
+        const indices = emailCounts.get(email) || [];
+        indices.push(index);
+        emailCounts.set(email, indices);
+      }
+    });
+
+    // Add errors for duplicates
+    emailCounts.forEach((indices) => {
+      if (indices.length > 1) {
+        indices.forEach(index => {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Email đã tồn tại trong danh sách",
+            path: [index, "email"]
+          });
+        });
+      }
+    });
+  })
+});
+
+const createClubSchema = baseClubSchema.superRefine((data, ctx) => {
+  if (data.type === 'paid' && (!data.membershipFee || data.membershipFee < 10000)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Mức phí phải tối thiểu 10.000 VND",
+      path: ["membershipFee"]
+    });
+  }
 });
 
 type CreateClubFormValues = z.infer<typeof createClubSchema>;
@@ -85,6 +128,10 @@ const CreateClubPage = () => {
       members: [], // Start empty
     },
     mode: "onChange",
+    reValidateMode: "onChange",
+    shouldUnregister: false,
+    shouldFocusError: false,
+    criteriaMode: "all"
   });
 
   const { fields, append, remove, replace } = useFieldArray({
@@ -160,11 +207,12 @@ const CreateClubPage = () => {
     }
   };
 
-  // Helper to count roles
+  // Helper to count roles - use watch to get real-time updates
+  const members = form.watch("members");
   const memberStats = {
-      total: fields.length,
-      leaders: fields.filter((f: any) => f.role === 'leader').length,
-      treasurers: fields.filter((f: any) => f.role === 'treasurer').length,
+      total: members?.length || 0,
+      leaders: members?.filter((m: any) => m.role === 'leader').length || 0,
+      treasurers: members?.filter((m: any) => m.role === 'treasurer').length || 0,
   };
 
   return (
@@ -208,7 +256,7 @@ const CreateClubPage = () => {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Lĩnh vực hoạt động</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Chọn lĩnh vực" />
@@ -273,10 +321,16 @@ const CreateClubPage = () => {
                                         <div className="relative">
                                             <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                             <Input 
-                                                type="number" 
+                                                type="text" 
                                                 placeholder="0" 
                                                 className="pl-9" 
-                                                {...field} 
+                                                value={field.value ? formatVND(field.value) : ''}
+                                                onChange={(e) => {
+                                                    // Remove non-numeric characters (except for potential future decimals, but VND is usually integer)
+                                                    const rawValue = e.target.value.replace(/\D/g, '');
+                                                    const numberValue = Number(rawValue);
+                                                    field.onChange(numberValue);
+                                                }}
                                             />
                                         </div>
                                     </FormControl>
@@ -312,20 +366,45 @@ const CreateClubPage = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <CardTitle>2. Danh sách thành viên sáng lập</CardTitle>
-                            <CardDescription>Tối thiểu 10 thành viên. Bao gồm 1 Chủ nhiệm và 1 Thủ quỹ.</CardDescription>
+                            <CardDescription className="pt-2">Tối thiểu 10 thành viên. Bao gồm 1 Chủ nhiệm và 1 Thủ quỹ.</CardDescription>
                         </div>
                         <div className="flex gap-2">
-                             <Button type="button" variant="outline" className="relative cursor-pointer">
-                                <Input 
-                                    type="file" 
-                                    accept=".xlsx, .xls" 
-                                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                                    onChange={handleFileUpload}
-                                    disabled={importing}
-                                />
-                                {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />}
-                                Nhập Excel
-                            </Button>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button type="button" variant="outline" className="relative cursor-pointer" disabled={importing}>
+                                            <Input 
+                                                type="file" 
+                                                accept=".xlsx, .xls" 
+                                                className="absolute inset-0 opacity-0 cursor-pointer" 
+                                                onChange={handleFileUpload}
+                                                disabled={importing}
+                                            />
+                                            {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />}
+                                            Nhập Excel
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-sm p-4">
+                                        <div className="space-y-2">
+                                            <p className="font-semibold">Định dạng Excel được chấp nhận:</p>
+                                            <div className="text-xs space-y-1">
+                                                <p><strong>Cột bắt buộc:</strong></p>
+                                                <ul className="list-disc list-inside ml-2 space-y-0.5">
+                                                    <li><strong>Họ tên:</strong> Name, Họ tên, hoặc Ten</li>
+                                                    <li><strong>Email:</strong> Email hoặc Mail</li>
+                                                </ul>
+                                                <p className="mt-2"><strong>Cột tùy chọn:</strong></p>
+                                                <ul className="list-disc list-inside ml-2 space-y-0.5">
+                                                    <li><strong>Vai trò:</strong> Role hoặc Vai trò</li>
+                                                    <li>Giá trị: <code className="bg-muted px-1 rounded">leader</code>, <code className="bg-muted px-1 rounded">treasurer</code>, hoặc <code className="bg-muted px-1 rounded">member</code></li>
+                                                    <li>Mặc định: <code className="bg-muted px-1 rounded">member</code> nếu để trống</li>
+                                                </ul>
+                                                <p className="mt-2 text-muted-foreground">Định dạng file: .xlsx hoặc .xls</p>
+                                            </div>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                             <Button type="button" variant="secondary" onClick={() => append({ fullName: "", email: "", role: "member" })}>
                                 <Plus className="mr-2 h-4 w-4" /> Thêm thủ công
                             </Button>
@@ -382,55 +461,96 @@ const CreateClubPage = () => {
                                             <FormField
                                                 control={form.control}
                                                 name={`members.${index}.fullName`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormControl>
-                                                            <Input placeholder="Họ tên" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
+                                                render={({ field }) => {
+                                                    return (
+                                                        <FormItem>
+                                                            <FormControl>
+                                                                <Input 
+                                                                    placeholder="Họ tên" 
+                                                                    {...field}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    );
+                                                }}
                                             />
                                         </TableCell>
                                         <TableCell>
                                              <FormField
                                                 control={form.control}
                                                 name={`members.${index}.email`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormControl>
-                                                            <Input placeholder="Email sinh viên" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
+                                                render={({ field }) => {
+                                                    return (
+                                                        <FormItem>
+                                                            <FormControl>
+                                                                <Input 
+                                                                    placeholder="Email sinh viên" 
+                                                                    type="email"
+                                                                    {...field}
+                                                                    onChange={(e) => {
+                                                                        field.onChange(e);
+                                                                        // Trigger validation for the whole members array to check for duplicates
+                                                                        form.trigger("members");
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    );
+                                                }}
                                             />
                                         </TableCell>
                                         <TableCell>
                                              <FormField
                                                 control={form.control}
                                                 name={`members.${index}.role`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                            <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                <SelectItem value="leader">Chủ nhiệm</SelectItem>
-                                                                <SelectItem value="treasurer">Thủ quỹ</SelectItem>
-                                                                <SelectItem value="member">Thành viên</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
+                                                render={({ field }) => {
+                                                    return (
+                                                        <FormItem>
+                                                            <Select 
+                                                                onValueChange={(value) => {
+                                                                    field.onChange(value);
+                                                                    // Wait for state update to propagate
+                                                                    setTimeout(() => {
+                                                                        form.trigger("members");
+                                                                    }, 0);
+                                                                }} 
+                                                                value={field.value}
+                                                            >
+                                                                <FormControl>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Chọn vai trò" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    <SelectItem value="leader">
+                                                                        <div className="flex items-center">
+                                                                            <Crown className="mr-2 h-4 w-4 text-yellow-500" />
+                                                                            Chủ nhiệm
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="treasurer">
+                                                                        <div className="flex items-center">
+                                                                            <Wallet className="mr-2 h-4 w-4 text-green-500" />
+                                                                            Thủ quỹ
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="member">
+                                                                        <div className="flex items-center">
+                                                                            Thành viên
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    );
+                                                }}
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
                                                 <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                                             </Button>
                                         </TableCell>
