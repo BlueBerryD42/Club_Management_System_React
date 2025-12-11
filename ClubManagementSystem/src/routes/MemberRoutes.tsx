@@ -1,21 +1,37 @@
 import type { RouteObject } from 'react-router-dom';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import MemberLayout from '@/layouts/MemberLayout';
+import Dashboard from '@/pages/member/Dashboard';
+import Profile from '@/pages/member/Profile';
+import MyClubs from '@/pages/member/MyClubs';
+import MyEvents from '@/pages/member/MyEvents';
+import Fees from '@/pages/member/Fees';
 
-// Placeholder page
-const MemberProfile = () => <div>Member Profile</div>;
-
+// TODO: Thêm lại ProtectedRoute khi kết nối API authentication
 const MemberRoutes: RouteObject = {
     path: '/member',
     element: (
-        <ProtectedRoute allowedRoles={['MEMBER']}>
-            <MemberLayout />
-        </ProtectedRoute>
+        <MemberLayout />
     ),
     children: [
         {
+            path: 'dashboard',
+            element: <Dashboard />,
+        },
+        {
             path: 'profile',
-            element: <MemberProfile />,
+            element: <Profile />,
+        },
+        {
+            path: 'my-clubs',
+            element: <MyClubs />,
+        },
+        {
+            path: 'my-events',
+            element: <MyEvents />,
+        },
+        {
+            path: 'fees',
+            element: <Fees />,
         },
     ],
 };

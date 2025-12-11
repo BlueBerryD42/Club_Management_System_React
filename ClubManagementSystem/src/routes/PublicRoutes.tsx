@@ -3,11 +3,31 @@ import Index from '../pages/HomePage';
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
+import Clubs from '@/pages/mainlayout/Clubs';
+import ClubDetail from '@/pages/mainlayout/ClubDetail';
+import Events from '@/pages/mainlayout/Events';
+import About from '@/pages/mainlayout/About';
 
 const PublicRoutes: RouteObject[] = [
     {
         path: '/',
         element: <Index />,
+    },
+    {
+        path: '/clubs',
+        element: <Clubs />,
+    },
+    {
+        path: '/clubs/:id',
+        element: <ClubDetail />,
+    },
+    {
+        path: '/events',
+        element: <Events />,
+    },
+    {
+        path: '/about',
+        element: <About />,
     },
     {
         path: '/login',

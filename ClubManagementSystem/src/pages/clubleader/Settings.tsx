@@ -1,0 +1,317 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import { Layout } from "@/components/layout/Layout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Save, Building2 } from "lucide-react";
+
+interface Club {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  slug: string;
+  email: string;
+  phone: string;
+  facebook_url: string;
+  instagram_url: string;
+  founded_year: number;
+  max_members: number;
+  is_recruiting: boolean;
+  membership_fee_enabled: boolean;
+  membership_fee_amount: number;
+}
+
+const CATEGORIES = [
+  "Học thuật",
+  "Nghệ thuật",
+  "Thể thao",
+  "Tình nguyện",
+  "Kỹ năng",
+  "Giải trí",
+  "Khác",
+];
+
+export default function ClubSettings() {
+  const { clubId } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [club, setClub] = useState<Club | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    category: "",
+    description: "",
+    slug: "",
+    email: "",
+    phone: "",
+    facebook_url: "",
+    instagram_url: "",
+    founded_year: new Date().getFullYear(),
+    max_members: 100,
+    is_recruiting: false,
+    membership_fee_enabled: false,
+    membership_fee_amount: 0,
+  });
+
+  useEffect(() => {
+    // TODO: Kết nối API để lấy thông tin CLB
+    const mockClub: Club = {
+      id: clubId || "",
+      name: "CLB Công nghệ",
+      category: "Kỹ thuật",
+      description: "Câu lạc bộ về công nghệ và kỹ thuật",
+      slug: "clb-cong-nghe",
+      email: "tech@club.edu.vn",
+      phone: "0901234567",
+      facebook_url: "https://facebook.com/techclub",
+      instagram_url: "https://instagram.com/techclub",
+      founded_year: 2020,
+      max_members: 100,
+      is_recruiting: true,
+      membership_fee_enabled: true,
+      membership_fee_amount: 50000,
+    };
+    setClub(mockClub);
+    setFormData({
+      name: mockClub.name,
+      category: mockClub.category,
+      description: mockClub.description,
+      slug: mockClub.slug,
+      email: mockClub.email,
+      phone: mockClub.phone,
+      facebook_url: mockClub.facebook_url,
+      instagram_url: mockClub.instagram_url,
+      founded_year: mockClub.founded_year,
+      max_members: mockClub.max_members,
+      is_recruiting: mockClub.is_recruiting,
+      membership_fee_enabled: mockClub.membership_fee_enabled,
+      membership_fee_amount: mockClub.membership_fee_amount,
+    });
+  }, [clubId]);
+
+  const handleSave = async () => {
+    if (!formData.name || !formData.category) {
+      toast({ title: "Lỗi", description: "Vui lòng điền đầy đủ thông tin bắt buộc", variant: "destructive" });
+      return;
+    }
+
+    setSaving(true);
+    // TODO: Kết nối API để lưu
+    setTimeout(() => {
+      setSaving(false);
+      toast({ title: "Thành công", description: "Đã cập nhật thông tin CLB" });
+    }, 1000);
+  };
+
+  if (!club) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <Button variant="ghost" asChild className="mb-6">
+          <Link to={`/club-leader/${clubId}`}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Quay lại Dashboard
+          </Link>
+        </Button>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-6 w-6" />
+              Cài đặt CLB
+            </CardTitle>
+            <CardDescription>
+              Cập nhật thông tin và cấu hình câu lạc bộ
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Tên CLB *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Danh mục *</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn danh mục" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Mô tả</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Mô tả về CLB..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email liên hệ</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="clb@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Số điện thoại</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="0123456789"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="facebook">Facebook URL</Label>
+                  <Input
+                    id="facebook"
+                    value={formData.facebook_url}
+                    onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
+                    placeholder="https://facebook.com/..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="instagram">Instagram URL</Label>
+                  <Input
+                    id="instagram"
+                    value={formData.instagram_url}
+                    onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
+                    placeholder="https://instagram.com/..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="founded_year">Năm thành lập</Label>
+                  <Input
+                    id="founded_year"
+                    type="number"
+                    value={formData.founded_year}
+                    onChange={(e) => setFormData({ ...formData, founded_year: parseInt(e.target.value) })}
+                    min={1990}
+                    max={new Date().getFullYear()}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="max_members">Số thành viên tối đa</Label>
+                  <Input
+                    id="max_members"
+                    type="number"
+                    value={formData.max_members}
+                    onChange={(e) => setFormData({ ...formData, max_members: parseInt(e.target.value) })}
+                    min={1}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="slug">Slug (URL thân thiện)</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                  placeholder="ten-clb-url-than-thien"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                <div className="space-y-0.5">
+                  <Label>Đang tuyển thành viên</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Cho phép sinh viên gửi đơn gia nhập CLB
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.is_recruiting}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_recruiting: checked })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                <div className="space-y-0.5">
+                  <Label>Thu phí thành viên</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Bật tính năng thu phí thành viên
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.membership_fee_enabled}
+                  onCheckedChange={(checked) => setFormData({ ...formData, membership_fee_enabled: checked })}
+                />
+              </div>
+
+              {formData.membership_fee_enabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="membership_fee">Phí thành viên (VNĐ)</Label>
+                  <Input
+                    id="membership_fee"
+                    type="number"
+                    value={formData.membership_fee_amount}
+                    onChange={(e) => setFormData({ ...formData, membership_fee_amount: parseInt(e.target.value) || 0 })}
+                    min={0}
+                  />
+                </div>
+              )}
+
+              <Button onClick={handleSave} className="w-full" disabled={saving}>
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Đang lưu..." : "Lưu thay đổi"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </Layout>
+  );
+}
