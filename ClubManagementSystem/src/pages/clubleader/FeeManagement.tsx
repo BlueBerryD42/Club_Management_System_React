@@ -169,7 +169,7 @@ export default function FeeManagement() {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         <Button variant="ghost" asChild className="mb-6">
-          <Link to={`/club-leader/${clubId}`}>
+          <Link to={`/club-leader/${clubId}/dashboard`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay lại Dashboard
           </Link>

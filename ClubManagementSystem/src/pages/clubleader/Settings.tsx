@@ -103,9 +103,127 @@ export default function ClubSettings() {
   }, [clubId]);
 
   const handleSave = async () => {
-    if (!formData.name || !formData.category) {
-      toast({ title: "Lỗi", description: "Vui lòng điền đầy đủ thông tin bắt buộc", variant: "destructive" });
+    // Validation tên CLB
+    if (!formData.name || formData.name.trim().length < 3) {
+      toast({ title: "Lỗi", description: "Tên CLB phải có ít nhất 3 ký tự", variant: "destructive" });
       return;
+    }
+
+    if (formData.name.length > 100) {
+      toast({ title: "Lỗi", description: "Tên CLB không được vượt quá 100 ký tự", variant: "destructive" });
+      return;
+    }
+
+    // Validation danh mục
+    if (!formData.category) {
+      toast({ title: "Lỗi", description: "Vui lòng chọn danh mục CLB", variant: "destructive" });
+      return;
+    }
+
+    // Validation mô tả
+    if (formData.description && formData.description.length > 1000) {
+      toast({ title: "Lỗi", description: "Mô tả không được vượt quá 1000 ký tự", variant: "destructive" });
+      return;
+    }
+
+    // Validation email
+    if (formData.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        toast({ title: "Lỗi", description: "Email không hợp lệ", variant: "destructive" });
+        return;
+      }
+    }
+
+    // Validation số điện thoại
+    if (formData.phone) {
+      const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
+      if (!phoneRegex.test(formData.phone.replace(/\s/g, ''))) {
+        toast({ title: "Lỗi", description: "Số điện thoại không hợp lệ (10-11 số, bắt đầu bằng 0 hoặc +84)", variant: "destructive" });
+        return;
+      }
+    }
+
+    // Validation Facebook URL
+    if (formData.facebook_url && formData.facebook_url.trim()) {
+      try {
+        const url = new URL(formData.facebook_url);
+        if (!url.hostname.includes('facebook.com') && !url.hostname.includes('fb.com')) {
+          toast({ title: "Lỗi", description: "Facebook URL không hợp lệ", variant: "destructive" });
+          return;
+        }
+      } catch {
+        toast({ title: "Lỗi", description: "Facebook URL không đúng định dạng", variant: "destructive" });
+        return;
+      }
+    }
+
+    // Validation Instagram URL
+    if (formData.instagram_url && formData.instagram_url.trim()) {
+      try {
+        const url = new URL(formData.instagram_url);
+        if (!url.hostname.includes('instagram.com')) {
+          toast({ title: "Lỗi", description: "Instagram URL không hợp lệ", variant: "destructive" });
+          return;
+        }
+      } catch {
+        toast({ title: "Lỗi", description: "Instagram URL không đúng định dạng", variant: "destructive" });
+        return;
+      }
+    }
+
+    // Validation năm thành lập
+    const currentYear = new Date().getFullYear();
+    if (formData.founded_year < 1900 || formData.founded_year > currentYear) {
+      toast({ title: "Lỗi", description: `Năm thành lập phải từ 1900 đến ${currentYear}`, variant: "destructive" });
+      return;
+    }
+
+    // Validation số thành viên tối đa
+    if (!formData.max_members || formData.max_members < 10) {
+      toast({ title: "Lỗi", description: "Số thành viên tối đa phải ít nhất là 10", variant: "destructive" });
+      return;
+    }
+
+    if (formData.max_members > 1000) {
+      toast({ title: "Lỗi", description: "Số thành viên tối đa không được vượt quá 1000", variant: "destructive" });
+      return;
+    }
+
+    // Validation slug
+    if (!formData.slug || formData.slug.trim().length < 3) {
+      toast({ title: "Lỗi", description: "Slug phải có ít nhất 3 ký tự", variant: "destructive" });
+      return;
+    }
+
+    const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    if (!slugRegex.test(formData.slug)) {
+      toast({ title: "Lỗi", description: "Slug chỉ được chứa chữ thường, số và dấu gạch ngang", variant: "destructive" });
+      return;
+    }
+
+    // Validation phí thành viên
+    if (formData.membership_fee_enabled) {
+      if (!formData.membership_fee_amount || formData.membership_fee_amount <= 0) {
+        toast({ title: "Lỗi", description: "Phí thành viên phải lớn hơn 0", variant: "destructive" });
+        return;
+      }
+
+      if (formData.membership_fee_amount < 10000) {
+        toast({ title: "Lỗi", description: "Phí thành viên tối thiểu là 10,000 VNĐ", variant: "destructive" });
+        return;
+      }
+
+      if (formData.membership_fee_amount > 10000000) {
+        toast({ title: "Lỗi", description: "Phí thành viên không được vượt quá 10,000,000 VNĐ", variant: "destructive" });
+        return;
+      }
+
+      // Kiểm tra phí phải là bội số của 1000
+      if (formData.membership_fee_amount % 1000 !== 0) {
+        toast({ title: "Lỗi", description: "Phí thành viên phải là bội số của 1,000 VNĐ", variant: "destructive" });
+        return;
+      }
     }
 
     setSaving(true);
@@ -130,7 +248,7 @@ export default function ClubSettings() {
     <Layout>
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <Button variant="ghost" asChild className="mb-6">
-          <Link to={`/club-leader/${clubId}`}>
+          <Link to={`/club-leader/${clubId}/dashboard`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay lại Dashboard
           </Link>
@@ -238,9 +356,10 @@ export default function ClubSettings() {
                     id="founded_year"
                     type="number"
                     value={formData.founded_year}
-                    onChange={(e) => setFormData({ ...formData, founded_year: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, founded_year: parseInt(e.target.value) || new Date().getFullYear() })}
                     min={1990}
                     max={new Date().getFullYear()}
+                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
                 <div className="space-y-2">
@@ -249,8 +368,9 @@ export default function ClubSettings() {
                     id="max_members"
                     type="number"
                     value={formData.max_members}
-                    onChange={(e) => setFormData({ ...formData, max_members: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, max_members: parseInt(e.target.value) || 0 })}
                     min={1}
+                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>
@@ -297,9 +417,11 @@ export default function ClubSettings() {
                   <Input
                     id="membership_fee"
                     type="number"
-                    value={formData.membership_fee_amount}
+                    value={formData.membership_fee_amount || ''}
                     onChange={(e) => setFormData({ ...formData, membership_fee_amount: parseInt(e.target.value) || 0 })}
                     min={0}
+                    placeholder="Nhập số tiền..."
+                    className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               )}

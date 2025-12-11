@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,7 @@ interface Event {
   start_time: string;
   end_time: string | null;
   max_attendees: number | null;
+  event_type: string;
   is_public: boolean;
   requires_approval: boolean;
   status: string;
@@ -41,6 +43,7 @@ export default function EventManagement() {
     start_time: "",
     end_time: "",
     max_attendees: 100,
+    event_type: "public_free",
     is_public: true,
     requires_approval: false,
   });
@@ -56,6 +59,7 @@ export default function EventManagement() {
         start_time: new Date(Date.now() + 86400000 * 7).toISOString(),
         end_time: new Date(Date.now() + 86400000 * 7 + 3600000).toISOString(),
         max_attendees: 100,
+        event_type: "public_free",
         is_public: true,
         requires_approval: false,
         status: "upcoming",
@@ -69,10 +73,39 @@ export default function EventManagement() {
         start_time: new Date(Date.now() + 86400000 * 14).toISOString(),
         end_time: null,
         max_attendees: 150,
+        event_type: "member_free",
         is_public: false,
         requires_approval: false,
         status: "upcoming",
         current_attendees: 58,
+      },
+      {
+        id: "3",
+        title: "Workshop Kỹ năng mềm",
+        description: "Hội thảo về kỹ năng giao tiếp",
+        location: "Hội trường A",
+        start_time: new Date(Date.now() + 86400000 * 7).toISOString(),
+        end_time: new Date(Date.now() + 86400000 * 7 + 3600000).toISOString(),
+        max_attendees: 100,
+        event_type: "public_paid",
+        is_public: true,
+        requires_approval: false,
+        status: "upcoming",
+        current_attendees: 42,
+      },
+      {
+        id: "4",
+        title: "Workshop Kỹ năng mềm",
+        description: "Hội thảo về kỹ năng giao tiếp",
+        location: "Hội trường A",
+        start_time: new Date(Date.now() + 86400000 * 7).toISOString(),
+        end_time: new Date(Date.now() + 86400000 * 7 + 3600000).toISOString(),
+        max_attendees: 100,
+        event_type: "member_paid",
+        is_public: true,
+        requires_approval: false,
+        status: "upcoming",
+        current_attendees: 42,
       },
     ]);
   }, [clubId]);
@@ -85,6 +118,7 @@ export default function EventManagement() {
       start_time: "",
       end_time: "",
       max_attendees: 100,
+      event_type: "public_free",
       is_public: true,
       requires_approval: false,
     });
@@ -126,6 +160,7 @@ export default function EventManagement() {
       start_time: event.start_time.slice(0, 16),
       end_time: event.end_time?.slice(0, 16) || "",
       max_attendees: event.max_attendees || 100,
+      event_type: event.event_type || "public_free",
       is_public: event.is_public,
       requires_approval: event.requires_approval,
     });
@@ -147,11 +182,26 @@ export default function EventManagement() {
     }
   };
 
+  const getEventTypeBadge = (eventType: string) => {
+    switch (eventType) {
+      case "public_free":
+        return <Badge className="bg-blue-500/20 text-blue-600">Công khai - Miễn phí</Badge>;
+      case "public_paid":
+        return <Badge className="bg-purple-500/20 text-purple-600">Công khai - Tính phí</Badge>;
+      case "member_free":
+        return <Badge className="bg-green-500/20 text-green-600">Nội bộ - Miễn phí</Badge>;
+      case "member_paid":
+        return <Badge className="bg-orange-500/20 text-orange-600">Nội bộ - Tính phí</Badge>;
+      default:
+        return <Badge variant="outline">{eventType}</Badge>;
+    }
+  };
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
         <Button variant="ghost" asChild className="mb-6">
-          <Link to={`/club-leader/${clubId}`}>
+          <Link to={`/club-leader/${clubId}/dashboard`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay lại Dashboard
           </Link>
@@ -174,6 +224,7 @@ export default function EventManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Tên sự kiện</TableHead>
+                  <TableHead>Loại</TableHead>
                   <TableHead>Thời gian</TableHead>
                   <TableHead>Địa điểm</TableHead>
                   <TableHead>Tham dự</TableHead>
@@ -184,7 +235,7 @@ export default function EventManagement() {
               <TableBody>
                 {events.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Chưa có sự kiện nào
                     </TableCell>
                   </TableRow>
@@ -192,13 +243,9 @@ export default function EventManagement() {
                   events.map((event) => (
                     <TableRow key={event.id}>
                       <TableCell>
-                        <div>
-                          <p className="font-medium">{event.title}</p>
-                          {!event.is_public && (
-                            <Badge variant="outline" className="mt-1">Nội bộ</Badge>
-                          )}
-                        </div>
+                        <p className="font-medium">{event.title}</p>
                       </TableCell>
+                      <TableCell>{getEventTypeBadge(event.event_type)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
                           <Calendar className="h-3 w-3" />
@@ -242,15 +289,49 @@ export default function EventManagement() {
         </Card>
 
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{editingEvent ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}</DialogTitle>
               <DialogDescription>Điền thông tin chi tiết về sự kiện</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 overflow-y-auto flex-1">
               <div className="space-y-2">
                 <Label htmlFor="title">Tên sự kiện *</Label>
                 <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="VD: Workshop Kỹ năng mềm" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event_type">Loại sự kiện *</Label>
+                <Select value={formData.event_type} onValueChange={(value) => setFormData({ ...formData, event_type: value })}>
+                  <SelectTrigger id="event_type">
+                    <SelectValue placeholder="Chọn loại sự kiện" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public_free">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">Sự kiện công khai miễn phí</span>
+                        <span className="text-xs text-muted-foreground">Mọi người đều có thể tham gia miễn phí</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="public_paid">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">Sự kiện công khai tính phí</span>
+                        <span className="text-xs text-muted-foreground">Mọi người có thể tham gia nhưng phải đóng phí</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="member_free">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">Sự kiện nội bộ miễn phí</span>
+                        <span className="text-xs text-muted-foreground">Chỉ dành cho thành viên CLB, miễn phí</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="member_paid">
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">Sự kiện nội bộ tính phí</span>
+                        <span className="text-xs text-muted-foreground">Chỉ dành cho thành viên CLB, có phí tham gia</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Mô tả</Label>
@@ -263,11 +344,11 @@ export default function EventManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="start_time">Thời gian bắt đầu *</Label>
-                  <Input id="start_time" type="datetime-local" value={formData.start_time} onChange={(e) => setFormData({ ...formData, start_time: e.target.value })} />
+                  <Input id="start_time" type="datetime-local" value={formData.start_time} onChange={(e) => setFormData({ ...formData, start_time: e.target.value })} className="[&::-webkit-calendar-picker-indicator]:ml-auto" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="end_time">Thời gian kết thúc</Label>
-                  <Input id="end_time" type="datetime-local" value={formData.end_time} onChange={(e) => setFormData({ ...formData, end_time: e.target.value })} />
+                  <Input id="end_time" type="datetime-local" value={formData.end_time} onChange={(e) => setFormData({ ...formData, end_time: e.target.value })} className="[&::-webkit-calendar-picker-indicator]:ml-auto" />
                 </div>
               </div>
               <div className="space-y-2">
