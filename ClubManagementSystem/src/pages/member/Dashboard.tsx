@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Building2, Calendar, CreditCard, Clock, Bell, Users } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,23 +20,21 @@ const useAuthLike = () => {
   return { user, loading, profile };
 };
 const Dashboard = () => {
-  const navigate = useNavigate();
   const { user, loading, profile } = useAuthLike();
   const [stats, setStats] = useState({ myClubs: 0, upcomingEvents: 0, pendingFees: 0, pendingRequests: 0 });
   const [activities, setActivities] = useState<Array<{ id: string; type: "event" | "club" | "fee" | "request"; title: string; description: string; date: string; status?: string }>>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login");
-    }
-  }, [user, loading, navigate]);
+  // TODO: Khôi phục auth check khi kết nối API
+  // useEffect(() => {
+  //   if (!loading && !user) {
+  //     navigate("/login");
+  //   }
+  // }, [user, loading, navigate]);
 
   useEffect(() => {
-    if (user) {
-      fetchDashboardData();
-    }
-  }, [user]);
+    fetchDashboardData();
+  }, []);
 
   const fetchDashboardData = async () => {
     if (!user) return;
@@ -201,7 +199,7 @@ const Dashboard = () => {
                   </Link>
                 </Button>
                 <Button variant="outline" className="h-auto py-4 justify-start" asChild>
-                  <Link to="/profile">
+                  <Link to="/member/profile">
                     <Users className="h-5 w-5 mr-3" />
                     <div className="text-left">
                       <div className="font-medium">Hồ sơ</div>

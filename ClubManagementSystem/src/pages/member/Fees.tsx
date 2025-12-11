@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,24 +59,29 @@ interface Payment {
 const Fees = () => {
   const user = useAppSelector((s) => s.auth.user);
   const loading = false;
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { toast } = useToast();
   const [fees, setFees] = useState<Fee[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login");
-    }
-  }, [user, loading, navigate]);
+  // TODO: Khôi phục auth check khi kết nối API
+  // useEffect(() => {
+  //   if (!loading && !user) {
+  //     navigate("/login");
+  //   }
+  // }, [user, loading, navigate]);
+
+  // useEffect(() => {
+  //   if (user) {
+  //     fetchData();
+  //   }
+  // }, [user]);
 
   useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     if (!user) return;

@@ -1,18 +1,16 @@
 import type { RouteObject } from 'react-router-dom';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import MemberLayout from '@/layouts/MemberLayout';
-import Dashboard from '@/pages/student/Dashboard';
-import Profile from '@/pages/student/Profile';
-import MyClubs from '@/pages/student/MyClubs';
-import MyEvents from '@/pages/student/MyEvents';
-import Fees from '@/pages/student/Fees';
+import Dashboard from '@/pages/member/Dashboard';
+import Profile from '@/pages/member/Profile';
+import MyClubs from '@/pages/member/MyClubs';
+import MyEvents from '@/pages/member/MyEvents';
+import Fees from '@/pages/member/Fees';
 
+// TODO: Thêm lại ProtectedRoute khi kết nối API authentication
 const MemberRoutes: RouteObject = {
     path: '/member',
     element: (
-        <ProtectedRoute allowedRoles={['MEMBER']}>
-            <MemberLayout />
-        </ProtectedRoute>
+        <MemberLayout />
     ),
     children: [
         {

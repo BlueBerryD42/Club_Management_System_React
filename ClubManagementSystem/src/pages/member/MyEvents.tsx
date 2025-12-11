@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,22 +46,27 @@ interface MyEvent {
 const MyEvents = () => {
   const user = useAppSelector((s) => s.auth.user);
   const loading = false;
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { toast } = useToast();
   const [registrations, setRegistrations] = useState<MyEvent[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login");
-    }
-  }, [user, loading, navigate]);
+  // TODO: Khôi phục auth check khi kết nối API
+  // useEffect(() => {
+  //   if (!loading && !user) {
+  //     navigate("/login");
+  //   }
+  // }, [user, loading, navigate]);
+
+  // useEffect(() => {
+  //   if (user) {
+  //     fetchData();
+  //   }
+  // }, [user]);
 
   useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
+    fetchData();
+  }, []);
 
   // Replace supabase API with mock data logic
   const fetchData = async () => {

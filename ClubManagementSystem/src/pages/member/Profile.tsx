@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,7 +54,7 @@ const useAuthLike = () => {
 };
 
 const Profile = () => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { toast } = useToast();
   const { user, profile, loading, refreshProfile } = useAuthLike();
   const [saving, setSaving] = useState(false);
@@ -74,11 +73,12 @@ const Profile = () => {
   }[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/login");
-    }
-  }, [user, loading, navigate]);
+  // TODO: Khôi phục auth check khi kết nối API
+  // useEffect(() => {
+  //   if (!loading && !user) {
+  //     navigate("/login");
+  //   }
+  // }, [user, loading, navigate]);
 
   useEffect(() => {
     if (profile) {
