@@ -5,35 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Users, Mail, Lock, Eye, EyeOff, ArrowRight, User, GraduationCap, Hash, Loader2 } from "lucide-react";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setCredentials } from "@/store/slices/authSlice";
+import { Users, Mail, Lock, Eye, EyeOff, ArrowRight, User, Hash, Loader2, Phone, GraduationCap } from "lucide-react";
+import { useAppSelector } from "@/store/hooks";
 import { useToast } from "@/hooks/use-toast";
+import { authApi } from "@/services/auth.service";
 import { z } from "zod";
 
-const faculties = [
-  "Khoa Công nghệ thông tin",
-  "Khoa Kinh tế",
-  "Khoa Ngoại ngữ",
-  "Khoa Điện - Điện tử",
-  "Khoa Cơ khí",
-  "Khoa Xây dựng",
-  "Khoa Luật",
-  "Khoa Y dược",
-];
 
 const registerSchema = z.object({
   fullName: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
-  studentId: z.string().min(5, "MSSV không hợp lệ"),
+  studentCode: z.string().min(5, "MSSV không hợp lệ"),
   email: z.string().email("Email không hợp lệ"),
-  faculty: z.string().min(1, "Vui lòng chọn khoa/viện"),
+  phone: z.string().optional(),
   password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
   confirmPassword: z.string(),
   agreeTerms: z.boolean().refine(val => val === true, "Bạn phải đồng ý với điều khoản"),
@@ -47,15 +30,14 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
-    studentId: "",
+    studentCode: "",
     email: "",
-    faculty: "",
+    phone: "",
     password: "",
     confirmPassword: "",
     agreeTerms: false,
   });
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
   const { toast } = useToast();
 
@@ -79,27 +61,34 @@ const Register = () => {
     }
 
     setIsLoading(true);
-    // Mock successful registration using Redux
-    setTimeout(() => {
-      dispatch(setCredentials({
-        token: "mock-token",
-        refreshToken: "mock-refresh",
-        user: {
-          email: formData.email,
-          full_name: formData.fullName,
-          student_id: formData.studentId,
-          faculty: formData.faculty,
-          avatar_url: "",
-        },
-      }));
-      setIsLoading(false);
 
-    toast({
-      title: "Đăng ký thành công",
-      description: "Chào mừng bạn đến với ClubHub!",
-    });
-    navigate("/dashboard");
-    }, 800);
+    try {
+      const registerPayload = {
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.fullName,
+        studentCode: formData.studentCode,
+        phone: formData.phone || undefined,
+      };
+
+      const response = await authApi.register(registerPayload);
+
+      if (response.data.success) {
+        toast({
+          title: "Đăng ký thành công",
+          description: "Vui lòng đăng nhập để tiếp tục.",
+        });
+        navigate("/login");
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Đăng ký thất bại",
+        description: error.response?.data?.message || "Đã có lỗi xảy ra, vui lòng thử lại.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -174,14 +163,14 @@ const Register = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="studentId">MSSV</Label>
+                    <Label htmlFor="studentCode">MSSV</Label>
                     <div className="relative">
                       <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input
-                        id="studentId"
+                        id="studentCode"
                         placeholder="2021001234"
-                        value={formData.studentId}
-                        onChange={(e) => setFormData({...formData, studentId: e.target.value})}
+                        value={formData.studentCode}
+                        onChange={(e) => setFormData({...formData, studentCode: e.target.value})}
                         className="pl-10 h-11"
                         required
                         disabled={isLoading}
@@ -208,21 +197,19 @@ const Register = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="faculty">Khoa/Viện</Label>
-                  <Select 
-                    value={formData.faculty} 
-                    onValueChange={(value) => setFormData({...formData, faculty: value})}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Chọn khoa/viện" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {faculties.map((faculty) => (
-                        <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="phone">Số điện thoại (tùy chọn)</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="0123456789"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                      className="pl-10 h-11"
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">

@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { clubApi } from "@/services/club.service";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Users, Star, Grid3X3, List } from "lucide-react";
+import { Search, Users, Star, Grid3X3, List, Loader2 } from "lucide-react";
 
-const allClubs = [
+const categories = ["Tất cả", "Học thuật", "Nghệ thuật", "Xã hội", "Kinh doanh", "Thể thao", "Văn hóa"];
+
+const allClubsMock = [
   {
     id: 1,
     name: "CLB Tin học",
@@ -96,8 +100,6 @@ const allClubs = [
   },
 ];
 
-const categories = ["Tất cả", "Học thuật", "Nghệ thuật", "Xã hội", "Kinh doanh", "Thể thao", "Văn hóa"];
-
 const categoryColors: Record<string, string> = {
   "Học thuật": "bg-primary/10 text-primary",
   "Nghệ thuật": "bg-accent/10 text-accent",
@@ -109,9 +111,43 @@ const categoryColors: Record<string, string> = {
 
 const Clubs = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState("members");
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch clubs from backend API
+  const { data: clubsData, isLoading } = useQuery({
+    queryKey: ['public-clubs', debouncedSearch],
+    queryFn: async () => {
+      const response = await clubApi.getAll({ search: debouncedSearch || undefined });
+      return response.data;
+    }
+  });
+
+  // Map backend data to frontend format
+  const allClubs = clubsData?.data?.map((club: any) => ({
+    id: club.id,
+    name: club.name,
+    category: club.description?.includes('học') ? 'Học thuật' : 
+              club.description?.includes('nghệ thuật') || club.description?.includes('âm nhạc') ? 'Nghệ thuật' :
+              club.description?.includes('tình nguyện') ? 'Xã hội' :
+              club.description?.includes('thể thao') ? 'Thể thao' : 'Văn hóa',
+    members: club._count?.memberships || 0,
+    description: club.description || '',
+    image: club.logoUrl || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=300&fit=crop',
+    isRecruiting: true,
+    rating: 4.7,
+    slug: club.slug
+  })) || allClubsMock;
 
   const filteredClubs = allClubs
     .filter((club) => {
@@ -206,13 +242,20 @@ const Clubs = () => {
             </div>
           </div>
 
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+
           {/* Clubs Grid/List */}
-          {viewMode === "grid" ? (
+          {!isLoading && viewMode === "grid" ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredClubs.map((club) => (
+              {filteredClubs.map((club: any) => (
                 <Link
                   key={club.id}
-                  to={`/clubs/${club.id}`}
+                  to={`/clubs/${club.slug || club.id}`}
                   className="group block rounded-2xl bg-card border border-border/50 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
                 >
                   <div className="relative h-48 overflow-hidden">
@@ -258,10 +301,10 @@ const Clubs = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredClubs.map((club) => (
+              {filteredClubs.map((club: any) => (
                 <Link
                   key={club.id}
-                  to={`/clubs/${club.id}`}
+                  to={`/clubs/${club.slug || club.id}`}
                   className="group flex gap-6 p-4 rounded-xl bg-card border border-border/50 hover:shadow-lg transition-all duration-300"
                 >
                   <div className="relative w-32 h-32 rounded-xl overflow-hidden shrink-0">
@@ -306,7 +349,7 @@ const Clubs = () => {
             </div>
           )}
 
-          {filteredClubs.length === 0 && (
+          {!isLoading && filteredClubs.length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">Không tìm thấy câu lạc bộ nào phù hợp.</p>
             </div>

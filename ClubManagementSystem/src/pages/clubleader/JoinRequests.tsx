@@ -7,8 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Check, X, Eye, MessageSquare } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { clubApi } from "@/services/club.service";
 
 interface JoinRequestWithProfile {
   id: string;
@@ -31,52 +35,56 @@ export default function JoinRequests() {
   const [requests, setRequests] = useState<JoinRequestWithProfile[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<JoinRequestWithProfile | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
+  const [reviewNotes, setReviewNotes] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
 
+  const queryClient = useQueryClient();
+  const { data: appsResp, isLoading } = useQuery({
+    queryKey: ["club-applications", clubId],
+    queryFn: async () => {
+      const res = await clubApi.getClubApplications(clubId!);
+      return res.data;
+    },
+    enabled: !!clubId,
+  });
+
   useEffect(() => {
-    // Mock data
-    setRequests([
-      {
-        id: "1",
-        user_id: "user1",
-        message: "Tôi rất thích lập trình và muốn tham gia CLB này",
-        status: "pending",
-        created_at: new Date(Date.now() - 86400000).toISOString(),
-        profile: {
-          full_name: "Phạm Văn D",
-          email: "d@student.edu.vn",
-          student_id: "20210004",
-          faculty: "Công nghệ thông tin",
-        },
+    const list = (appsResp?.data || []).map((a: any) => ({
+      id: a.id,
+      user_id: a.userId,
+      message: a.introduction || a.message || null,
+      status: (a.status || '').toLowerCase(),
+      created_at: a.createdAt,
+      profile: {
+        full_name: a.user?.fullName || a.user?.email,
+        email: a.user?.email,
+        student_id: a.user?.studentCode || null,
+        faculty: a.user?.faculty || null,
       },
-      {
-        id: "2",
-        user_id: "user2",
-        message: "Muốn học hỏi thêm về lập trình web",
-        status: "approved",
-        created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-        profile: {
-          full_name: "Vũ Thị E",
-          email: "e@student.edu.vn",
-          student_id: "20210005",
-          faculty: "Công nghệ thông tin",
-        },
-      },
-    ]);
-  }, [clubId]);
+    }));
+    setRequests(list);
+  }, [appsResp]);
+
+  const reviewMutation = useMutation({
+    mutationFn: (vars: { applicationId: string; action: 'approve'|'reject'; reviewNotes?: string }) =>
+      clubApi.reviewApplication(clubId!, vars.applicationId, { action: vars.action, reviewNotes: vars.reviewNotes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["club-applications", clubId] });
+    }
+  });
 
   const handleApprove = async (request: JoinRequestWithProfile) => {
-    // TODO: Kết nối API
-    setRequests(requests.map(r => r.id === request.id ? { ...r, status: "approved" } : r));
+    await reviewMutation.mutateAsync({ applicationId: request.id, action: 'approve', reviewNotes: reviewNotes.trim() || undefined });
     toast({ title: "Thành công", description: `Đã duyệt đơn của ${request.profile.full_name}` });
     setShowDetailDialog(false);
+    setReviewNotes("");
   };
 
   const handleReject = async (request: JoinRequestWithProfile) => {
-    // TODO: Kết nối API
-    setRequests(requests.map(r => r.id === request.id ? { ...r, status: "rejected" } : r));
+    await reviewMutation.mutateAsync({ applicationId: request.id, action: 'reject', reviewNotes: reviewNotes.trim() || undefined });
     toast({ title: "Đã từ chối", description: `Đã từ chối đơn của ${request.profile.full_name}` });
     setShowDetailDialog(false);
+    setReviewNotes("");
   };
 
   const getStatusBadge = (status: string) => {
@@ -225,6 +233,18 @@ export default function JoinRequests() {
                   <p className="text-sm text-muted-foreground">Trạng thái</p>
                   {getStatusBadge(selectedRequest.status)}
                 </div>
+                {selectedRequest?.status === "pending" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="reviewNotes">Ghi chú duyệt (tuỳ chọn)</Label>
+                    <Textarea
+                      id="reviewNotes"
+                      value={reviewNotes}
+                      onChange={(e) => setReviewNotes(e.target.value)}
+                      placeholder="Nhập ghi chú cho lý do duyệt hoặc từ chối..."
+                      rows={3}
+                    />
+                  </div>
+                )}
               </div>
             )}
             <DialogFooter>

@@ -1,22 +1,70 @@
 import apiClient from './api';
 
+// Backend API payload interfaces
 export interface LoginPayload {
-    username?: string;
-    email?: string;
-    password?: string;
+    email: string;
+    password: string;
 }
 
 export interface RegisterPayload {
-    username: string;
     email: string;
     password: string;
-    fullName?: string;
+    fullName: string;
+    studentCode?: string;
+    phone?: string;
+}
+
+// Backend API response interfaces
+export interface LoginResponse {
+    success: boolean;
+    accessToken: string;
+    user: {
+        id: string;
+        email: string;
+        fullName: string;
+        role: 'ADMIN' | 'USER';
+    };
+}
+
+export interface RegisterResponse {
+    message: string;
+    success: boolean;
+    data: {
+        id: string;
+        email: string;
+        fullName: string;
+        phone?: string;
+        studentCode?: string;
+    };
+}
+
+export interface UserProfile {
+    id: string;
+    email: string;
+    fullName: string;
+    phone?: string;
+    studentCode?: string;
+    role: 'ADMIN' | 'USER';
+    avatarUrl?: string;
+    createdAt: string;
+    updatedAt: string;
+    memberships?: Array<{
+        clubId: string;
+        role: 'LEADER' | 'MEMBER' | 'STAFF' | 'TREASURER';
+        status: string;
+    }>;
 }
 
 export const authApi = {
-    login: (data: LoginPayload) => apiClient.post('/auth/login', data),
-    register: (data: RegisterPayload) => apiClient.post('/auth/register', data),
-    logout: () => apiClient.post('/auth/logout'),
-    getCurrentUser: () => apiClient.get('/auth/me'),
-    refreshToken: (token: string, refreshToken: string) => apiClient.post('/auth/refresh', { token, refreshToken }),
+    login: (data: LoginPayload) => 
+        apiClient.post<LoginResponse>('/users/login', data),
+    
+    register: (data: RegisterPayload) => 
+        apiClient.post<RegisterResponse>('/users/register', data),
+    
+    getCurrentUser: () => 
+        apiClient.get<{ user: UserProfile }>('/users/getprofile'),
+    
+    getProfile: () =>
+        apiClient.get<{ user: UserProfile }>('/users/getprofile'),
 };

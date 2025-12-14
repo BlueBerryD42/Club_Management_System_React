@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { clubApi } from "@/services/club.service";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,27 +45,51 @@ export default function ClubLeaderDashboard() {
     paidFees: 0,
   });
 
+  // Fetch club detail
+  const { data: clubResp, isLoading: loadingClub } = useQuery({
+    queryKey: ["leader-club-detail", clubId],
+    queryFn: async () => {
+      const res = await clubApi.getById(clubId!);
+      return res.data;
+    },
+    enabled: !!clubId,
+  });
+
+  // Fetch applications for pending count
+  const { data: appsResp } = useQuery({
+    queryKey: ["leader-club-applications", clubId],
+    queryFn: async () => {
+      const res = await clubApi.getClubApplications(clubId!);
+      return res.data;
+    },
+    enabled: !!clubId,
+  });
+
   useEffect(() => {
-    // TODO: Kết nối API để lấy thông tin CLB
-    setClub({
-      id: clubId || "",
-      name: "CLB Công nghệ",
-      category: "Kỹ thuật",
-      description: "Câu lạc bộ về công nghệ và kỹ thuật",
-    });
+    if (clubResp?.data) {
+      const c = clubResp.data;
+      setClub({
+        id: c.id,
+        name: c.name,
+        category: c.category || "",
+        description: c.description || "",
+      });
+      const memberCount = c._count?.memberships || 0;
+      setStats((prev) => ({
+        ...prev,
+        totalMembers: memberCount,
+        activeMembers: memberCount, // If backend distinguishes, replace here
+      }));
+    }
+  }, [clubResp]);
 
-    // Mock stats
-    setStats({
-      totalMembers: 45,
-      activeMembers: 42,
-      pendingRequests: 3,
-      upcomingEvents: 2,
-      totalFees: 4500000,
-      paidFees: 3200000,
-    });
-  }, [clubId]);
+  useEffect(() => {
+    const list = (appsResp?.data || []) as Array<{ status: string }>;
+    const pending = list.filter(a => a.status?.toUpperCase() === 'PENDING').length;
+    setStats((prev) => ({ ...prev, pendingRequests: pending }));
+  }, [appsResp]);
 
-  if (!club) {
+  if (!club || loadingClub) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -113,7 +139,7 @@ export default function ClubLeaderDashboard() {
                 <Users className="h-5 w-5" />
                 Quản lý thành viên
               </CardTitle>
-              <CardDescription>Duyệt đơn, quản lý vai trò thành viên</CardDescription>
+              <CardDescription>Quản lý vai trò thành viên</CardDescription>
             </CardHeader>
             <CardContent>
               <Button variant="outline" className="w-full">
@@ -163,7 +189,7 @@ export default function ClubLeaderDashboard() {
                   </span>
                 )}
               </CardTitle>
-              <CardDescription>Xem xét đơn xin gia nhập CLB</CardDescription>
+              <CardDescription>Xem xét, duyệt đơn xin gia nhập CLB</CardDescription>
             </CardHeader>
             <CardContent>
               <Button variant="outline" className="w-full">

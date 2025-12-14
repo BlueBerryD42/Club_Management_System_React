@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Users, Calendar, FileText, LogIn, UserPlus, Home, Building2, User, LogOut, CreditCard, LayoutDashboard } from "lucide-react";
+import { Menu, X, Users, Calendar, FileText, LogIn, UserPlus, Home, Building2, User, LogOut, CreditCard, LayoutDashboard, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { logout } from "@/store/slices/authSlice";
 
 const navLinks = [
@@ -27,8 +28,11 @@ export function Header() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
-  const loading = false;
-  const profile = user ? { full_name: user.full_name || user.name || user.email || "Người dùng", avatar_url: user.avatar_url } : undefined;
+  // Fetch and hydrate user profile (memberships, etc.) after login
+  const { isLoading: profileLoading } = useUserProfile();
+  const loading = profileLoading;
+  const profile = user ? { full_name: user.fullName || user.email || "Người dùng", avatar_url: user.avatarUrl } : undefined;
+  const leaderClubs = (user?.memberships || []).filter(m => m.role === 'LEADER' && m.status === 'ACTIVE');
 
   const handleSignOut = async () => {
     dispatch(logout());
@@ -86,37 +90,51 @@ export function Header() {
                   <span className="max-w-[120px] truncate text-sm">{profile?.full_name || "Người dùng"}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuItem asChild>
-                  <Link to="/dashboard" className="flex items-center gap-2">
+                  <Link to="/member/dashboard" className="flex items-center gap-2">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/profile" className="flex items-center gap-2">
+                  <Link to="/member/profile" className="flex items-center gap-2">
                     <User className="h-4 w-4" />
                     Hồ sơ cá nhân
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/my-clubs" className="flex items-center gap-2">
+                  <Link to="/member/my-clubs" className="flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
                     CLB của tôi
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/my-events" className="flex items-center gap-2">
+                  <Link to="/member/my-events" className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     Sự kiện của tôi
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/fees" className="flex items-center gap-2">
+                  <Link to="/member/fees" className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4" />
                     Thanh toán phí
                   </Link>
                 </DropdownMenuItem>
+                {leaderClubs.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Khu vực Leader</div>
+                    {leaderClubs.map((m) => (
+                      <DropdownMenuItem key={m.clubId} asChild>
+                        <Link to={`/club-leader/${m.clubId}/dashboard`} className="flex items-center gap-2">
+                          <Crown className="h-4 w-4 text-yellow-500" />
+                          Quản lý CLB #{m.clubId.slice(0, 6)}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />
@@ -180,10 +198,26 @@ export function Header() {
             <div className="border-t border-border/50 my-2 pt-4 flex flex-col gap-2">
               {user ? (
                 <>
-                  <Link to="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted">
+                  <Link to="/member/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted">
                     <LayoutDashboard className="h-5 w-5" />
                     Dashboard
                   </Link>
+                  {leaderClubs.length > 0 && (
+                    <>
+                      <div className="px-4 pt-2 text-xs font-medium text-muted-foreground">Khu vực Leader</div>
+                      {leaderClubs.map((m) => (
+                        <Link
+                          key={m.clubId}
+                          to={`/club-leader/${m.clubId}/dashboard`}
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
+                        >
+                          <Crown className="h-5 w-5 text-yellow-500" />
+                          Quản lý CLB #{m.clubId.slice(0,6)}
+                        </Link>
+                      ))}
+                    </>
+                  )}
                   <Button variant="ghost" className="justify-start text-destructive" onClick={() => { handleSignOut(); setIsOpen(false); }}>
                     <LogOut className="h-4 w-4 mr-2" />
                     Đăng xuất

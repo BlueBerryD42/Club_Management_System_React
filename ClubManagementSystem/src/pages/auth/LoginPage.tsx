@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Users, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-reac
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setCredentials } from "@/store/slices/authSlice";
 import { useToast } from "@/hooks/use-toast";
+import { authApi } from "@/services/auth.service";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -27,10 +28,14 @@ const Login = () => {
   const { toast } = useToast();
 
   // Redirect if already logged in
-  if (user) {
-    navigate("/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'ADMIN') {
+      navigate('/admin/dashboard', { replace: true });
+    } else {
+      navigate('/member/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,21 +51,41 @@ const Login = () => {
     }
 
     setIsLoading(true);
-    // Mock successful login using Redux
-    setTimeout(() => {
-      dispatch(setCredentials({
-        token: "mock-token",
-        refreshToken: "mock-refresh",
-        user: { email, full_name: "Sinh viên", avatar_url: "" },
-      }));
-      setIsLoading(false);
+    
+    try {
+      const response = await authApi.login({ email, password });
+      
+      if (response.data.success) {
+        const roleRaw = (response.data.user.role || '').toString().toUpperCase();
+        const normalizedRole: 'ADMIN' | 'USER' = roleRaw === 'ADMIN' ? 'ADMIN' : 'USER';
 
-    toast({
-      title: "Đăng nhập thành công",
-      description: "Chào mừng bạn trở lại!",
-    });
-    navigate("/dashboard");
-    }, 600);
+        dispatch(setCredentials({
+          token: response.data.accessToken,
+          user: { ...response.data.user, role: normalizedRole },
+        }));
+
+        toast({
+          title: "Đăng nhập thành công",
+          description: "Chào mừng bạn trở lại!",
+        });
+
+        // Navigate based on system role
+        if (normalizedRole === 'ADMIN') {
+          navigate('/admin/dashboard', { replace: true });
+        } else {
+          navigate('/member/dashboard', { replace: true });
+        }
+      }
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast({
+        variant: "destructive",
+        title: "Đăng nhập thất bại",
+        description: err.response?.data?.message || "Email hoặc mật khẩu không đúng",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

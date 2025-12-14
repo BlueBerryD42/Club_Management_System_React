@@ -1,36 +1,16 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { adminService } from "@/services/admin.service";
+import { clubApi } from "@/services/club.service";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ArrowLeft, Edit2, Save, MoreHorizontal, User, Crown, Wallet } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-
-// Mock Data
-const mockClub = {
-    id: "1",
-    name: "CLB Guitar",
-    category: "Nghệ thuật",
-    type: "free",
-    status: "active",
-    description: "Nơi hội tụ những trái tim yêu âm nhạc và cây đàn guitar.",
-    leader: { id: "u1", name: "Nguyễn Văn A", email: "a.nguyen@student.edu", avatar: "" },
-    treasurer: { id: "u2", name: "Trần Thị B", email: "b.tran@student.edu", avatar: "" },
-    membersCount: 45,
-    members: [
-        { id: "u1", name: "Nguyễn Văn A", email: "a.nguyen@student.edu", role: "leader", status: "active" },
-        { id: "u2", name: "Trần Thị B", email: "b.tran@student.edu", role: "treasurer", status: "active" },
-        { id: "u3", name: "Lê Văn C", email: "c.le@student.edu", role: "member", status: "active" },
-        // ... more members
-    ]
-};
 
 const ClubDetailPage = () => {
     const { id } = useParams();
@@ -40,23 +20,63 @@ const ClubDetailPage = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({ name: "", description: "" });
 
-    const { data: club = mockClub } = useQuery({
+    // Fetch club details from backend
+    const { data: clubData, isLoading } = useQuery({
         queryKey: ['admin-club-detail', id],
         queryFn: async () => {
-            try {
-                // return await adminService.getClubDetails(id!);
-                const data = mockClub; // Mock
-                setEditForm({ name: data.name, description: data.description });
-                return data;
-            } catch (error) {
-                console.error(error);
-                return mockClub;
-            }
-        }
+            const response = await clubApi.getById(id!);
+            return response.data;
+        },
+        enabled: !!id
     });
 
+    // Fetch club members
+    const { data: membersData } = useQuery({
+        queryKey: ['club-members', id],
+        queryFn: async () => {
+            const response = await clubApi.getMembers(id!);
+            return response.data;
+        },
+        enabled: !!id
+    });
+
+    // Map backend data to frontend format
+    const club = clubData?.data ? {
+        id: clubData.data.id,
+        name: clubData.data.name,
+        category: clubData.data.description?.substring(0, 50) || 'Chưa phân loại',
+        type: 'free',
+        status: 'active',
+        description: clubData.data.description || '',
+        leader: {
+            id: clubData.data.leader?.id || '',
+            name: clubData.data.leader?.fullName || 'Chưa có',
+            email: clubData.data.leader?.email || '',
+            avatar: clubData.data.leader?.avatarUrl || ''
+        },
+        treasurer: {
+            id: '',
+            name: 'Chưa có',
+            email: '',
+            avatar: ''
+        },
+        membersCount: clubData.data._count?.memberships || 0,
+        members: membersData?.data?.map((m: any) => ({
+            id: m.user?.id || m.userId,
+            name: m.user?.fullName || m.user?.email || 'Unknown',
+            email: m.user?.email || '',
+            role: m.role?.toLowerCase() || 'member',
+            status: 'active'
+        })) || []
+    } : null;
+
+    // Update form when data loads
+    if (club && !editForm.name) {
+        setEditForm({ name: club.name, description: club.description });
+    }
+
     const updateMutation = useMutation({
-        mutationFn: () => adminService.updateClubInfo(id!, editForm),
+        mutationFn: () => clubApi.update(id!, editForm),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-club-detail', id] });
             toast({ title: "Thành công", description: "Đã cập nhật thông tin CLB." });
@@ -65,27 +85,24 @@ const ClubDetailPage = () => {
         onError: () => toast({ title: "Lỗi", description: "Không thể cập nhật.", variant: "destructive" })
     });
 
-    const roleMutation = useMutation({
-        mutationFn: ({ userId, role }: { userId: string, role: string }) => 
-            adminService.promoteMember(id!, userId, role),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin-club-detail', id] });
-            toast({ title: "Thành công", description: "Đã cập nhật vai trò thành viên." });
-        }
-    });
-
     const handleSave = () => {
-        // updateMutation.mutate();
-        console.log("Mock update", updateMutation);
-        toast({ title: "Simulation", description: "Updating club info..." });
-        setIsEditing(false);
+        updateMutation.mutate();
     };
 
-    const handlePromote = (userId: string, role: string) => {
-        // roleMutation.mutate({ userId, role });
-        console.log("Mock promote", roleMutation);
-        toast({ title: "Simulation", description: `Promoting user ${userId} to ${role}` });
+    const handlePromote = (_userId: string, _role: string) => {
+        toast({ title: "Thông báo", description: "Tính năng cập nhật vai trò đang phát triển" });
     };
+
+    if (isLoading || !club) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-muted-foreground">Đang tải...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 pb-20">
@@ -195,7 +212,7 @@ const ClubDetailPage = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {club.members.map((member) => (
+                            {club.members.map((member: { id: string; name: string; email: string; role: string; status: string }) => (
                                 <TableRow key={member.id}>
                                     <TableCell className="font-medium">{member.name}</TableCell>
                                     <TableCell>{member.email}</TableCell>

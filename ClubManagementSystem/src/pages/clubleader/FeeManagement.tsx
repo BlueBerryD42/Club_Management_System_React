@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { clubApi } from "@/services/club.service";
+import { useMutation } from "@tanstack/react-query";
 
 interface Fee {
   id: string;
@@ -52,70 +54,7 @@ export default function FeeManagement() {
   const [activeTab, setActiveTab] = useState("fees");
 
   useEffect(() => {
-    // Mock fees data
-    const mockFees: Fee[] = [
-      {
-        id: "1",
-        name: "Phí quản lý hàng năm",
-        amount: 50000,
-        description: "Phí để duy trì hoạt động CLB",
-        is_required: true,
-        created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
-      },
-      {
-        id: "2",
-        name: "Phí tham gia sự kiện",
-        amount: 30000,
-        description: "Phí tham gia sự kiện lớn",
-        is_required: false,
-        created_at: new Date(Date.now() - 86400000 * 20).toISOString(),
-      },
-    ];
-    setFees(mockFees);
-
-    // Mock payments data
-    const mockPayments: FeePayment[] = [
-      {
-        id: "1",
-        user_id: "user1",
-        fee_id: "1",
-        amount_paid: 50000,
-        status: "paid",
-        paid_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-        proof_url: null,
-        full_name: "Nguyễn Văn A",
-        email: "a@student.edu.vn",
-        student_id: "20210001",
-        fee_name: "Phí quản lý hàng năm",
-      },
-      {
-        id: "2",
-        user_id: "user2",
-        fee_id: "1",
-        amount_paid: 50000,
-        status: "pending",
-        paid_at: null,
-        proof_url: null,
-        full_name: "Trần Thị B",
-        email: "b@student.edu.vn",
-        student_id: "20210002",
-        fee_name: "Phí quản lý hàng năm",
-      },
-      {
-        id: "3",
-        user_id: "user3",
-        fee_id: "1",
-        amount_paid: 50000,
-        status: "pending",
-        paid_at: null,
-        proof_url: null,
-        full_name: "Lê Văn C",
-        email: "c@student.edu.vn",
-        student_id: "20210003",
-        fee_name: "Phí quản lý hàng năm",
-      },
-    ];
-    setPayments(mockPayments);
+    // TODO: Fetch current fee config if available via separate endpoint (not specified)
   }, [clubId]);
 
   const resetFeeForm = () => {
@@ -123,13 +62,27 @@ export default function FeeManagement() {
     setEditingFee(null);
   };
 
+  const configFeeMutation = useMutation({
+    mutationFn: () => clubApi.configMembershipFee(clubId!, {
+      name: feeFormData.name,
+      amount: feeFormData.amount,
+      description: feeFormData.description,
+      isRequired: feeFormData.is_required,
+    }),
+    onSuccess: () => {
+      toast({ title: "Thành công", description: "Đã cấu hình phí hội viên" });
+    },
+    onError: () => {
+      toast({ title: "Lỗi", description: "Cấu hình phí thất bại", variant: "destructive" });
+    }
+  });
+
   const handleCreateFee = async () => {
     if (!feeFormData.name || feeFormData.amount <= 0) {
       toast({ title: "Lỗi", description: "Vui lòng điền đầy đủ thông tin", variant: "destructive" });
       return;
     }
-    // TODO: Kết nối API
-    toast({ title: "Thành công", description: "Đã tạo phí mới" });
+    await configFeeMutation.mutateAsync();
     setShowFeeDialog(false);
     resetFeeForm();
   };

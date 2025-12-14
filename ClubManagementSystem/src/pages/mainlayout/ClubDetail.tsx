@@ -1,10 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { useQuery } from '@tanstack/react-query';
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import JoinClubDialog from "@/components/member/JoinClubDialog";
+import { useAppSelector } from "@/store/hooks";
+import { clubApi } from '@/services/club.service';
 import {
   Users,
   Star,
@@ -21,75 +25,113 @@ import {
   Phone,
   Award,
   FileText,
+  Loader2,
 } from "lucide-react";
 
-// Mock data
-const clubData = {
-  id: 1,
-  name: "CLB Tin học",
-  category: "Học thuật",
-  members: 156,
-  description: "CLB Tin học là nơi hội tụ của những sinh viên đam mê công nghệ, lập trình và phát triển phần mềm. Chúng tôi tổ chức các workshop, hackathon và các buổi chia sẻ kiến thức về các công nghệ mới nhất.",
-  longDescription: `
-    CLB Tin học được thành lập với sứ mệnh kết nối và phát triển cộng đồng sinh viên yêu thích công nghệ thông tin. 
-    
-    Với hơn 5 năm hoạt động, CLB đã tổ chức hàng trăm sự kiện, workshop và cuộc thi lập trình, giúp hàng nghìn sinh viên nâng cao kỹ năng và có cơ hội việc làm tốt hơn.
 
-    Các hoạt động chính:
-    - Workshop về các công nghệ mới: React, AI/ML, Cloud Computing
-    - Hackathon hàng năm với giải thưởng hấp dẫn
-    - Mentorship program với các anh chị senior
-    - Kết nối doanh nghiệp và cơ hội thực tập
-  `,
-  image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&h=400&fit=crop",
-  isRecruiting: true,
-  rating: 4.8,
-  totalReviews: 45,
-  foundedYear: 2019,
-  leader: {
-    name: "Nguyễn Văn An",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    role: "Chủ nhiệm CLB",
-  },
-  contacts: {
-    email: "clbtinhoc@university.edu.vn",
-    phone: "0123 456 789",
-    facebook: "facebook.com/clbtinhoc",
-    instagram: "@clbtinhoc",
-  },
-  achievements: [
-    "Giải Nhất Hackathon Quốc gia 2023",
-    "Top 10 CLB xuất sắc toàn quốc",
-    "200+ thành viên tìm được việc làm",
-  ],
-  upcomingEvents: [
-    {
-      id: 1,
-      title: "Workshop: React 19 Features",
-      date: "2024-12-15",
-      time: "14:00",
-      location: "Hội trường A1",
-      attendees: 45,
-    },
-    {
-      id: 2,
-      title: "Hackathon: AI for Good",
-      date: "2024-12-20",
-      time: "08:00",
-      location: "Khu vực sự kiện",
-      attendees: 120,
-    },
-  ],
-  recentMembers: [
-    { id: 1, name: "Trần Thị B", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" },
-    { id: 2, name: "Lê Văn C", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
-    { id: 3, name: "Phạm Thị D", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop" },
-    { id: 4, name: "Hoàng Văn E", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" },
-  ],
-};
 
 const ClubDetail = () => {
-  // const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  
+  // Get current user from Redux (must be called before any early returns)
+  const user = useAppSelector((s) => s.auth.user);
+
+  // Fetch club details from API
+  const { data: clubResponse, isLoading, error } = useQuery({
+    queryKey: ['public-club-detail', id],
+    queryFn: async () => {
+      const response = await clubApi.getById(id!);
+      return response.data;
+    },
+    enabled: !!id,
+  });
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show error state
+  if (error || !clubResponse?.data) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+          <p className="text-muted-foreground">Không tìm thấy thông tin câu lạc bộ</p>
+          <Button asChild>
+            <Link to="/clubs">Quay lại danh sách</Link>
+          </Button>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Map backend data to frontend format
+  const club = clubResponse.data;
+  const clubData = {
+    id: club.id,
+    name: club.name,
+    category: club.description?.includes('học') ? 'Học thuật' : 
+              club.description?.includes('nghệ thuật') ? 'Nghệ thuật' :
+              club.description?.includes('tình nguyện') ? 'Xã hội' :
+              club.description?.includes('thể thao') ? 'Thể thao' : 'Văn hóa',
+    members: club._count?.memberships || 0,
+    description: club.description || '',
+    longDescription: club.description || '',
+    image: club.logoUrl || "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&h=400&fit=crop",
+    isRecruiting: club.status === 'ACTIVE',
+    rating: 4.8,
+    totalReviews: 45,
+    foundedYear: new Date(club.createdAt).getFullYear(),
+    leader: {
+      name: club.leader?.fullName || club.leader?.email?.split('@')[0] || 'Chưa có',
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(club.leader?.fullName || club.leader?.email || 'User')}&background=random`,
+      role: "Chủ nhiệm CLB",
+    },
+    contacts: {
+      email: club.leader?.email || "contact@university.edu.vn",
+      phone: "0123 456 789",
+      facebook: `facebook.com/${club.slug}`,
+      instagram: `@${club.slug}`,
+    },
+    achievements: [
+      "Giải Nhất Hackathon Quốc gia 2023",
+      "Top 10 CLB xuất sắc toàn quốc",
+      "200+ thành viên tìm được việc làm",
+    ],
+    upcomingEvents: [
+      {
+        id: 1,
+        title: "Workshop: React 19 Features",
+        date: "2024-12-15",
+        time: "14:00",
+        location: "Hội trường A1",
+        attendees: 45,
+      },
+      {
+        id: 2,
+        title: "Hackathon: AI for Good",
+        date: "2024-12-20",
+        time: "08:00",
+        location: "Khu vực sự kiện",
+        attendees: 120,
+      },
+    ],
+    recentMembers: [
+      { id: 1, name: "Trần Thị B", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" },
+      { id: 2, name: "Lê Văn C", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
+      { id: 3, name: "Phạm Thị D", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop" },
+      { id: 4, name: "Hoàng Văn E", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" },
+    ],
+  };
+  
+  // Check if user is already a member of this club
+  const isMember = !!user?.memberships?.some(m => m.clubId === clubData.id && m.status === 'ACTIVE');
 
   return (
     <Layout>
@@ -155,9 +197,16 @@ const ClubDetail = () => {
                   </div>
                 </div>
               </div>
-              <Button variant="hero" size="lg">
-                Đăng ký tham gia
-              </Button>
+              <JoinClubDialog
+                clubId={clubData.id.toString()}
+                clubName={clubData.name}
+                disabled={!clubData.isRecruiting}
+                triggerLabel="Đăng ký tham gia"
+                onSubmitted={(payload) => {
+                  console.log("Join request submitted:", payload);
+                  // TODO: Add to pending requests list or refresh data
+                }}
+              />
             </div>
           </div>
         </div>
@@ -363,9 +412,14 @@ const ClubDetail = () => {
                   <p className="text-sm opacity-90 mb-4">
                     CLB đang mở đợt tuyển thành viên mới. Đăng ký để không bỏ lỡ cơ hội!
                   </p>
-                  <Button className="w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90">
-                    Gửi đơn đăng ký
-                  </Button>
+                  <div className="w-full">
+                    <JoinClubDialog
+                      clubId={clubData.id}
+                      clubName={clubData.name}
+                      triggerLabel={isMember ? "Bạn đã là thành viên" : "Đăng ký tham gia"}
+                      disabled={isMember}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </div>

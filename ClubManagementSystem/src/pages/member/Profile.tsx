@@ -15,9 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAppSelector } from "@/store/hooks";
-// import axios from "axios"; // Use axios for mock API
 import { useToast } from "@/hooks/use-toast";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { 
   User, 
   Mail, 
@@ -44,25 +43,15 @@ const faculties = [
   "Khoa Y dược",
 ];
 
-// Derive auth info from Redux store
-const useAuthLike = () => {
-  const user = useAppSelector((s) => s.auth.user);
-  const loading = false;
-  const profile = user ? { full_name: user.full_name || user.name || user.email, email: user.email, avatar_url: user.avatar_url } : undefined;
-  const refreshProfile = async () => {};
-  return { user, profile, loading, refreshProfile };
-};
-
 const Profile = () => {
-  // const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, profile, loading, refreshProfile } = useAuthLike();
+  const { user, profile, isLoading, refetch } = useUserProfile();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    full_name: "",
+    fullName: "",
     phone: "",
     faculty: "",
-    student_id: "",
+    studentCode: "",
   });
   const [activities, setActivities] = useState<{
     id: string;
@@ -73,23 +62,16 @@ const Profile = () => {
   }[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
 
-  // TODO: Khôi phục auth check khi kết nối API
-  // useEffect(() => {
-  //   if (!loading && !user) {
-  //     navigate("/login");
-  //   }
-  // }, [user, loading, navigate]);
-
   useEffect(() => {
-    if (profile) {
+    if (user) {
       setFormData({
-        full_name: profile.full_name || "",
-        phone: "",
+        fullName: user.fullName || "",
+        phone: user.phone || "",
         faculty: "",
-        student_id: "",
+        studentCode: user.studentCode || "",
       });
     }
-  }, [profile]);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -108,18 +90,28 @@ const Profile = () => {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    setTimeout(() => {
+    try {
+      // TODO: Call API to update profile
+      // await authApi.updateProfile({ ...formData });
+      
       // Simulate profile update
-      refreshProfile();
+      await refetch();
       toast({
         title: "Thành công",
         description: "Thông tin cá nhân đã được cập nhật",
       });
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Cập nhật thất bại",
+        variant: "destructive",
+      });
+    } finally {
       setSaving(false);
-    }, 1000);
+    }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="container py-8">
@@ -162,9 +154,9 @@ const Profile = () => {
                   <div className="flex items-center gap-6">
                     <div className="relative">
                       <Avatar className="h-24 w-24">
-                        <AvatarImage src={profile?.avatar_url || ""} />
+                        <AvatarImage src={user?.avatarUrl || ""} />
                         <AvatarFallback className="text-2xl gradient-primary text-primary-foreground">
-                          {profile?.full_name?.charAt(0) || "U"}
+                          {user?.fullName?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
                       <Button
@@ -176,8 +168,8 @@ const Profile = () => {
                       </Button>
                     </div>
                     <div>
-                      <CardTitle className="text-2xl">{profile?.full_name}</CardTitle>
-                      <CardDescription className="text-base">{profile?.email}</CardDescription>
+                      <CardTitle className="text-2xl">{user?.fullName}</CardTitle>
+                      <CardDescription className="text-base">{user?.email}</CardDescription>
                       <Badge variant="secondary" className="mt-2">Sinh viên</Badge>
                     </div>
                   </div>
@@ -199,8 +191,8 @@ const Profile = () => {
                           <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                           <Input
                             id="fullName"
-                            value={formData.full_name}
-                            onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                            value={formData.fullName}
+                            onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                             className="pl-10"
                           />
                         </div>
@@ -211,8 +203,8 @@ const Profile = () => {
                           <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                           <Input
                             id="studentId"
-                            value={formData.student_id}
-                            onChange={(e) => setFormData({...formData, student_id: e.target.value})}
+                            value={formData.studentCode}
+                            onChange={(e) => setFormData({...formData, studentCode: e.target.value})}
                             className="pl-10"
                           />
                         </div>
@@ -226,7 +218,7 @@ const Profile = () => {
                           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                           <Input
                             id="email"
-                            value={profile?.email || ""}
+                            value={user?.email || ""}
                             disabled
                             className="pl-10 bg-muted"
                           />

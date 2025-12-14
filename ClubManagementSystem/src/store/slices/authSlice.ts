@@ -1,17 +1,34 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+export interface User {
+    id: string;
+    email: string;
+    fullName: string;
+    role: 'ADMIN' | 'USER';
+    phone?: string;
+    studentCode?: string;
+    avatarUrl?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    memberships?: Array<{
+        clubId: string;
+        role: 'LEADER' | 'MEMBER' | 'STAFF' | 'TREASURER';
+        status: string;
+    }>;
+}
+
 interface AuthState {
     token: string | null;
-    refreshToken: string | null;
-    user: any | null;
+    user: User | null;
     isAuthenticated: boolean;
+    isRehydrating: boolean;
 }
 
 const initialState: AuthState = {
     token: null,
-    refreshToken: null,
     user: null,
     isAuthenticated: false,
+    isRehydrating: true,
 };
 
 const authSlice = createSlice({
@@ -20,26 +37,40 @@ const authSlice = createSlice({
     reducers: {
         setCredentials: (
             state,
-            action: PayloadAction<{ token: string; refreshToken: string; user: any }>
+            action: PayloadAction<{ token: string; user: User }>
         ) => {
-            const { token, refreshToken, user } = action.payload;
+            const { token, user } = action.payload;
             state.token = token;
-            state.refreshToken = refreshToken;
             state.user = user;
             state.isAuthenticated = true;
         },
         logout: (state) => {
             state.token = null;
-            state.refreshToken = null;
             state.user = null;
             state.isAuthenticated = false;
+            state.isRehydrating = false;
         },
         updateToken: (state, action: PayloadAction<{ token: string }>) => {
             state.token = action.payload.token;
+        },
+        updateUser: (state, action: PayloadAction<Partial<User>>) => {
+            if (state.user) {
+                state.user = { ...state.user, ...action.payload };
+            }
+        },
+        setRehydrating: (state, action: PayloadAction<boolean>) => {
+            state.isRehydrating = action.payload;
+        },
+        restoreSessionFailed: (state) => {
+            // Clear auth state when restored session validation fails
+            state.token = null;
+            state.user = null;
+            state.isAuthenticated = false;
+            state.isRehydrating = false;
         }
     },
 });
 
-export const { setCredentials, logout, updateToken } = authSlice.actions;
+export const { setCredentials, logout, updateToken, updateUser, setRehydrating, restoreSessionFailed } = authSlice.actions;
 
 export default authSlice.reducer;

@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router-dom';
 import MemberLayout from '@/layouts/MemberLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import Dashboard from '@/pages/member/Dashboard';
 import Profile from '@/pages/member/Profile';
 import MyClubs from '@/pages/member/MyClubs';
@@ -10,7 +11,9 @@ import Fees from '@/pages/member/Fees';
 const MemberRoutes: RouteObject = {
     path: '/member',
     element: (
-        <MemberLayout />
+        <ProtectedRoute allowedRoles={['USER']}>
+            <MemberLayout />
+        </ProtectedRoute>
     ),
     children: [
         {

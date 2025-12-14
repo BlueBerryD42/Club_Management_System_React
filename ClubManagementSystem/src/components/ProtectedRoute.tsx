@@ -8,8 +8,13 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ allowedRoles, children }: ProtectedRouteProps) => {
-    const { isAuthenticated, user, token } = useAppSelector((state) => state.auth);
+    const { isAuthenticated, user, token, isRehydrating } = useAppSelector((state) => state.auth);
     const location = useLocation();
+
+    // Wait for Redux Persist to restore state
+    if (isRehydrating) {
+        return null;
+    }
 
     // Check if user is authenticated (token exists in store/persist)
     if (!isAuthenticated || !token) {
