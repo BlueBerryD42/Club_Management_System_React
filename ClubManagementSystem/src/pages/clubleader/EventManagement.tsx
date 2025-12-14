@@ -1,200 +1,357 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Calendar, MapPin, Users, Eye, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Calendar, MapPin, Users, Loader2, Link as LinkIcon } from "lucide-react";
+import { eventService, type Event as BackendEvent } from "@/services/event.service";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
+import { formatVND } from "@/lib/utils";
 
 interface Event {
   id: string;
   title: string;
   description: string | null;
   location: string | null;
-  start_time: string;
-  end_time: string | null;
-  max_attendees: number | null;
-  event_type: string;
-  is_public: boolean;
-  requires_approval: boolean;
-  status: string;
-  current_attendees: number | null;
+  startTime: string;
+  endTime: string | null;
+  capacity: number | null;
+  type: 'PUBLIC' | 'INTERNAL';
+  pricingType: 'FREE' | 'PAID';
+  price: number;
+  format: 'ONLINE' | 'OFFLINE';
+  onlineLink: string | null;
+  isActive: boolean;
+  attendees: number;
+  visibleFrom: string | null;
 }
+
+// Zod Schema for Event Form
+const eventFormSchema = z.object({
+  title: z.string().min(3, "Tên sự kiện phải có ít nhất 3 ký tự").max(200, "Tên sự kiện không được vượt quá 200 ký tự"),
+  description: z.string().optional(),
+  type: z.enum(["PUBLIC", "INTERNAL"], { required_error: "Vui lòng chọn loại sự kiện" }),
+  pricingType: z.enum(["FREE", "PAID"], { required_error: "Vui lòng chọn hình thức thanh toán" }),
+  price: z.number().min(0, "Giá vé phải lớn hơn hoặc bằng 0").optional(),
+  format: z.enum(["ONLINE", "OFFLINE"], { required_error: "Vui lòng chọn hình thức tổ chức" }),
+  location: z.string().optional(),
+  onlineLink: z.string().url("Link không hợp lệ").optional().or(z.literal("")),
+  startTime: z.string().min(1, "Vui lòng chọn thời gian bắt đầu"),
+  endTime: z.string().optional(),
+  capacity: z.number().min(1, "Số người tối đa phải lớn hơn 0").optional(),
+  visibleFrom: z.string().min(1, "Vui lòng chọn thời gian hiển thị"),
+}).refine((data) => {
+  if (data.pricingType === "PAID") {
+    return data.price !== undefined && data.price > 0;
+  }
+  return true;
+}, {
+  message: "Vui lòng nhập giá vé cho sự kiện tính phí",
+  path: ["price"],
+}).refine((data) => {
+  if (data.format === "OFFLINE") {
+    return data.location && data.location.trim().length > 0;
+  }
+  return true;
+}, {
+  message: "Vui lòng nhập địa điểm cho sự kiện offline",
+  path: ["location"],
+}).refine((data) => {
+  if (data.format === "ONLINE") {
+    return data.onlineLink && data.onlineLink.trim().length > 0;
+  }
+  return true;
+}, {
+  message: "Vui lòng nhập link trực tuyến cho sự kiện online",
+  path: ["onlineLink"],
+}).refine((data) => {
+  if (data.startTime && data.visibleFrom) {
+    const startTime = new Date(data.startTime);
+    const visibleFrom = new Date(data.visibleFrom);
+    return visibleFrom < startTime;
+  }
+  return true;
+}, {
+  message: "Thời gian hiển thị phải trước thời gian bắt đầu",
+  path: ["visibleFrom"],
+}).refine((data) => {
+  if (data.startTime && data.endTime) {
+    const startTime = new Date(data.startTime);
+    const endTime = new Date(data.endTime);
+    return endTime > startTime;
+  }
+  return true;
+}, {
+  message: "Thời gian kết thúc phải sau thời gian bắt đầu",
+  path: ["endTime"],
+});
+
+type EventFormValues = z.infer<typeof eventFormSchema>;
 
 export default function EventManagement() {
   const { clubId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    location: "",
-    start_time: "",
-    end_time: "",
-    max_attendees: 100,
-    event_type: "public_free",
-    is_public: true,
-    requires_approval: false,
-  });
-
-  useEffect(() => {
-    // Mock data
-    setEvents([
-      {
-        id: "1",
-        title: "Workshop Kỹ năng mềm",
-        description: "Hội thảo về kỹ năng giao tiếp",
-        location: "Hội trường A",
-        start_time: new Date(Date.now() + 86400000 * 7).toISOString(),
-        end_time: new Date(Date.now() + 86400000 * 7 + 3600000).toISOString(),
-        max_attendees: 100,
-        event_type: "public_free",
-        is_public: true,
-        requires_approval: false,
-        status: "upcoming",
-        current_attendees: 42,
-      },
-      {
-        id: "2",
-        title: "Gặp mặt thành viên mới",
-        description: "Tiệc chào đón thành viên mới",
-        location: "Khuôn viên trường",
-        start_time: new Date(Date.now() + 86400000 * 14).toISOString(),
-        end_time: null,
-        max_attendees: 150,
-        event_type: "member_free",
-        is_public: false,
-        requires_approval: false,
-        status: "upcoming",
-        current_attendees: 58,
-      },
-      {
-        id: "3",
-        title: "Workshop Kỹ năng mềm",
-        description: "Hội thảo về kỹ năng giao tiếp",
-        location: "Hội trường A",
-        start_time: new Date(Date.now() + 86400000 * 7).toISOString(),
-        end_time: new Date(Date.now() + 86400000 * 7 + 3600000).toISOString(),
-        max_attendees: 100,
-        event_type: "public_paid",
-        is_public: true,
-        requires_approval: false,
-        status: "upcoming",
-        current_attendees: 42,
-      },
-      {
-        id: "4",
-        title: "Workshop Kỹ năng mềm",
-        description: "Hội thảo về kỹ năng giao tiếp",
-        location: "Hội trường A",
-        start_time: new Date(Date.now() + 86400000 * 7).toISOString(),
-        end_time: new Date(Date.now() + 86400000 * 7 + 3600000).toISOString(),
-        max_attendees: 100,
-        event_type: "member_paid",
-        is_public: true,
-        requires_approval: false,
-        status: "upcoming",
-        current_attendees: 42,
-      },
-    ]);
-  }, [clubId]);
-
-  const resetForm = () => {
-    setFormData({
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [priceDisplay, setPriceDisplay] = useState("");
+  
+  const form = useForm<EventFormValues>({
+    resolver: zodResolver(eventFormSchema),
+    defaultValues: {
       title: "",
       description: "",
       location: "",
-      start_time: "",
-      end_time: "",
-      max_attendees: 100,
-      event_type: "public_free",
-      is_public: true,
-      requires_approval: false,
+      onlineLink: "",
+      startTime: "",
+      endTime: "",
+      capacity: undefined,
+      type: "PUBLIC",
+      pricingType: "FREE",
+      price: 0,
+      format: "OFFLINE",
+      visibleFrom: "",
+    },
+  });
+
+  useEffect(() => {
+    if (clubId) {
+      fetchEvents();
+    }
+  }, [clubId]);
+
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      const response = await eventService.getAll({ clubId });
+      const mappedEvents: Event[] = (response.data || []).map((event: BackendEvent) => ({
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        location: event.location,
+        startTime: event.startTime,
+        endTime: event.endTime,
+        capacity: event.capacity ?? undefined,
+        type: event.type,
+        pricingType: event.pricingType,
+        price: event.price,
+        format: event.format,
+        onlineLink: event.onlineLink,
+        isActive: event.isActive,
+        attendees: event._count?.tickets || 0,
+        visibleFrom: event.visibleFrom,
+      }));
+      setEvents(mappedEvents);
+    } catch (error: any) {
+      console.error("Error fetching events:", error);
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể tải danh sách sự kiện",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    form.reset({
+      title: "",
+      description: "",
+      location: "",
+      onlineLink: "",
+      startTime: "",
+      endTime: "",
+      capacity: undefined,
+      type: "PUBLIC",
+      pricingType: "FREE",
+      price: 0,
+      format: "OFFLINE",
+      visibleFrom: "",
     });
+    setPriceDisplay("");
     setEditingEvent(null);
   };
 
-  const handleCreate = async () => {
-    if (!formData.title || !formData.start_time) {
-      toast({ title: "Lỗi", description: "Vui lòng điền đầy đủ thông tin", variant: "destructive" });
+  const handleCreate = async (data: EventFormValues) => {
+    if (!clubId) {
+      toast({ title: "Lỗi", description: "Không tìm thấy CLB", variant: "destructive" });
       return;
     }
 
-    // TODO: Kết nối API
-    toast({ title: "Thành công", description: "Đã tạo sự kiện mới" });
-    setShowCreateDialog(false);
-    resetForm();
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        title: data.title,
+        description: data.description || undefined,
+        type: data.type,
+        pricingType: data.pricingType,
+        price: data.pricingType === "PAID" ? data.price : undefined,
+        capacity: data.capacity ?? null,
+        startTime: new Date(data.startTime).toISOString(),
+        endTime: data.endTime ? new Date(data.endTime).toISOString() : undefined,
+        format: data.format,
+        location: data.format === "OFFLINE" ? data.location : undefined,
+        onlineLink: data.format === "ONLINE" ? data.onlineLink : undefined,
+        visibleFrom: data.visibleFrom ? new Date(data.visibleFrom).toISOString() : undefined,
+      };
+
+      await eventService.create(clubId, payload);
+      toast({ title: "Thành công", description: "Đã tạo sự kiện mới" });
+      setShowCreateDialog(false);
+      resetForm();
+      fetchEvents();
+    } catch (error: any) {
+      console.error("Error creating event:", error);
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể tạo sự kiện",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleUpdate = async () => {
-    if (!editingEvent) return;
-    // TODO: Kết nối API
-    toast({ title: "Thành công", description: "Đã cập nhật sự kiện" });
-    setShowCreateDialog(false);
-    resetForm();
+  const handleUpdate = async (data: EventFormValues) => {
+    if (!editingEvent) {
+      toast({ title: "Lỗi", description: "Không tìm thấy sự kiện", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        title: data.title,
+        description: data.description || undefined,
+        type: data.type,
+        pricingType: data.pricingType,
+        price: data.pricingType === "PAID" ? data.price : undefined,
+        capacity: data.capacity ?? null,
+        startTime: new Date(data.startTime).toISOString(),
+        endTime: data.endTime ? new Date(data.endTime).toISOString() : undefined,
+        format: data.format,
+        location: data.format === "OFFLINE" ? data.location : undefined,
+        onlineLink: data.format === "ONLINE" ? data.onlineLink : undefined,
+        visibleFrom: data.visibleFrom ? new Date(data.visibleFrom).toISOString() : undefined,
+      };
+
+      await eventService.update(editingEvent.id, payload);
+      toast({ title: "Thành công", description: "Đã cập nhật sự kiện" });
+      setShowCreateDialog(false);
+      resetForm();
+      fetchEvents();
+    } catch (error: any) {
+      console.error("Error updating event:", error);
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể cập nhật sự kiện",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDelete = async (eventId: string) => {
-    // TODO: Kết nối API
-    setEvents(events.filter(e => e.id !== eventId));
-    toast({ title: "Thành công", description: "Đã xóa sự kiện" });
+    if (!confirm("Bạn có chắc chắn muốn xóa sự kiện này?")) {
+      return;
+    }
+
+    try {
+      await eventService.delete(eventId);
+      toast({ title: "Thành công", description: "Đã xóa sự kiện" });
+      fetchEvents();
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể xóa sự kiện",
+        variant: "destructive",
+      });
+    }
   };
 
   const openEditDialog = (event: Event) => {
     setEditingEvent(event);
-    setFormData({
+    const startDate = new Date(event.startTime);
+    const endDate = event.endTime ? new Date(event.endTime) : null;
+    const visibleFromDate = event.visibleFrom ? new Date(event.visibleFrom) : null;
+    
+    form.reset({
       title: event.title,
       description: event.description || "",
       location: event.location || "",
-      start_time: event.start_time.slice(0, 16),
-      end_time: event.end_time?.slice(0, 16) || "",
-      max_attendees: event.max_attendees || 100,
-      event_type: event.event_type || "public_free",
-      is_public: event.is_public,
-      requires_approval: event.requires_approval,
+      onlineLink: event.onlineLink || "",
+      startTime: format(startDate, "yyyy-MM-dd'T'HH:mm"),
+      endTime: endDate ? format(endDate, "yyyy-MM-dd'T'HH:mm") : "",
+      capacity: event.capacity ?? undefined,
+      type: event.type,
+      pricingType: event.pricingType,
+      price: event.price,
+      format: event.format,
+      visibleFrom: visibleFromDate ? format(visibleFromDate, "yyyy-MM-dd'T'HH:mm") : "",
     });
+    setPriceDisplay(event.price > 0 ? formatVND(event.price) : "");
     setShowCreateDialog(true);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "upcoming":
-        return <Badge className="bg-primary/20 text-primary">Sắp diễn ra</Badge>;
-      case "ongoing":
-        return <Badge className="bg-success/20 text-success">Đang diễn ra</Badge>;
-      case "completed":
-        return <Badge variant="outline">Đã kết thúc</Badge>;
-      case "cancelled":
-        return <Badge className="bg-destructive/20 text-destructive">Đã hủy</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+  const getStatusBadge = (event: Event) => {
+    const now = new Date();
+    const startTime = new Date(event.startTime);
+    const endTime = event.endTime ? new Date(event.endTime) : null;
+
+    if (!event.isActive) {
+      return <Badge className="bg-destructive/20 text-destructive">Đã hủy</Badge>;
     }
+
+    if (now < startTime) {
+      return <Badge className="bg-primary/20 text-primary">Sắp diễn ra</Badge>;
+    }
+
+    if (endTime && now >= startTime && now < endTime) {
+      return <Badge className="bg-success/20 text-success">Đang diễn ra</Badge>;
+    }
+
+    if (endTime && now >= endTime) {
+      return <Badge variant="outline">Đã kết thúc</Badge>;
+    }
+
+    return <Badge variant="outline">Đang diễn ra</Badge>;
   };
 
-  const getEventTypeBadge = (eventType: string) => {
-    switch (eventType) {
-      case "public_free":
-        return <Badge className="bg-blue-500/20 text-blue-600">Công khai - Miễn phí</Badge>;
-      case "public_paid":
-        return <Badge className="bg-purple-500/20 text-purple-600">Công khai - Tính phí</Badge>;
-      case "member_free":
-        return <Badge className="bg-green-500/20 text-green-600">Nội bộ - Miễn phí</Badge>;
-      case "member_paid":
-        return <Badge className="bg-orange-500/20 text-orange-600">Nội bộ - Tính phí</Badge>;
-      default:
-        return <Badge variant="outline">{eventType}</Badge>;
+  const getEventTypeBadge = (event: Event) => {
+    const typeLabel = event.type === "PUBLIC" ? "Công khai" : "Nội bộ";
+    const pricingLabel = event.pricingType === "FREE" ? "Miễn phí" : "Tính phí";
+    
+    if (event.type === "PUBLIC" && event.pricingType === "FREE") {
+      return <Badge className="bg-blue-500/20 text-blue-600">{typeLabel} - {pricingLabel}</Badge>;
     }
+    if (event.type === "PUBLIC" && event.pricingType === "PAID") {
+      return <Badge className="bg-purple-500/20 text-purple-600">{typeLabel} - {pricingLabel}</Badge>;
+    }
+    if (event.type === "INTERNAL" && event.pricingType === "FREE") {
+      return <Badge className="bg-green-500/20 text-green-600">{typeLabel} - {pricingLabel}</Badge>;
+    }
+    if (event.type === "INTERNAL" && event.pricingType === "PAID") {
+      return <Badge className="bg-orange-500/20 text-orange-600">{typeLabel} - {pricingLabel}</Badge>;
+    }
+    return <Badge variant="outline">{typeLabel} - {pricingLabel}</Badge>;
   };
 
   return (
@@ -233,7 +390,13 @@ export default function EventManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {events.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                    </TableCell>
+                  </TableRow>
+                ) : events.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Chưa có sự kiện nào
@@ -245,38 +408,45 @@ export default function EventManagement() {
                       <TableCell>
                         <p className="font-medium">{event.title}</p>
                       </TableCell>
-                      <TableCell>{getEventTypeBadge(event.event_type)}</TableCell>
+                      <TableCell>{getEventTypeBadge(event)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
                           <Calendar className="h-3 w-3" />
-                          {new Date(event.start_time).toLocaleString("vi-VN")}
+                          {format(new Date(event.startTime), "dd/MM/yyyy HH:mm", { locale: vi })}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {event.location && (
+                        {event.format === "ONLINE" ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <LinkIcon className="h-3 w-3" />
+                            <span className="line-clamp-1 max-w-[200px]">{event.onlineLink || "Chưa có link"}</span>
+                          </div>
+                        ) : event.location ? (
                           <div className="flex items-center gap-1 text-sm">
                             <MapPin className="h-3 w-3" />
-                            {event.location}
+                            <span className="line-clamp-1 max-w-[200px]">{event.location}</span>
                           </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Chưa cập nhật</span>
                         )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
                           <Users className="h-3 w-3" />
-                          {event.current_attendees}/{event.max_attendees}
+                          {event.capacity 
+                            ? `${event.attendees}/${event.capacity}` 
+                            : `${event.attendees} (Không giới hạn)`}
                         </div>
                       </TableCell>
-                      <TableCell>{getStatusBadge(event.status)}</TableCell>
+                      <TableCell>{getStatusBadge(event)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(event)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(event.id)}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => navigate(`/club-leader/${clubId}/events/${event.id}/manage`)}
+                          >
+                            Quản lý
                           </Button>
                         </div>
                       </TableCell>
@@ -289,76 +459,318 @@ export default function EventManagement() {
         </Card>
 
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{editingEvent ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"}</DialogTitle>
               <DialogDescription>Điền thông tin chi tiết về sự kiện</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4 overflow-y-auto flex-1">
-              <div className="space-y-2">
-                <Label htmlFor="title">Tên sự kiện *</Label>
-                <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="VD: Workshop Kỹ năng mềm" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="event_type">Loại sự kiện *</Label>
-                <Select value={formData.event_type} onValueChange={(value) => setFormData({ ...formData, event_type: value })}>
-                  <SelectTrigger id="event_type">
-                    <SelectValue placeholder="Chọn loại sự kiện" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public_free">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">Sự kiện công khai miễn phí</span>
-                        <span className="text-xs text-muted-foreground">Mọi người đều có thể tham gia miễn phí</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="public_paid">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">Sự kiện công khai tính phí</span>
-                        <span className="text-xs text-muted-foreground">Mọi người có thể tham gia nhưng phải đóng phí</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="member_free">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">Sự kiện nội bộ miễn phí</span>
-                        <span className="text-xs text-muted-foreground">Chỉ dành cho thành viên CLB, miễn phí</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="member_paid">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">Sự kiện nội bộ tính phí</span>
-                        <span className="text-xs text-muted-foreground">Chỉ dành cho thành viên CLB, có phí tham gia</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Mô tả</Label>
-                <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Chi tiết về sự kiện..." rows={3} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Địa điểm</Label>
-                <Input id="location" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder="VD: Hội trường A" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="start_time">Thời gian bắt đầu *</Label>
-                  <Input id="start_time" type="datetime-local" value={formData.start_time} onChange={(e) => setFormData({ ...formData, start_time: e.target.value })} className="[&::-webkit-calendar-picker-indicator]:ml-auto" />
+            <Form {...form}>
+              <form id="event-form" onSubmit={form.handleSubmit(editingEvent ? handleUpdate : handleCreate)} className="space-y-4 py-4 px-4 overflow-y-auto flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <p className="text-sm text-muted-foreground mb-2">
+                  <span className="text-destructive">*</span> Các trường bắt buộc
+                </p>
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tên sự kiện <span className="text-destructive">*</span></FormLabel>
+                      <FormControl>
+                        <Input placeholder="VD: Workshop Kỹ năng mềm" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Loại sự kiện <span className="text-destructive">*</span></FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn loại" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="PUBLIC">Công khai</SelectItem>
+                            <SelectItem value="INTERNAL">Nội bộ</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pricingType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Hình thức thanh toán <span className="text-destructive">*</span></FormLabel>
+                        <Select onValueChange={(value) => {
+                          field.onChange(value);
+                          if (value === "FREE") {
+                            form.setValue("price", 0);
+                            setPriceDisplay("");
+                          }
+                        }} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn hình thức" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="FREE">Miễn phí</SelectItem>
+                            <SelectItem value="PAID">Tính phí</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="format"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Hình thức tổ chức <span className="text-destructive">*</span></FormLabel>
+                        <Select onValueChange={(value) => {
+                          field.onChange(value);
+                          if (value === "ONLINE") {
+                            form.setValue("location", "");
+                          } else {
+                            form.setValue("onlineLink", "");
+                          }
+                        }} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn hình thức" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="OFFLINE">Offline</SelectItem>
+                            <SelectItem value="ONLINE">Online</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end_time">Thời gian kết thúc</Label>
-                  <Input id="end_time" type="datetime-local" value={formData.end_time} onChange={(e) => setFormData({ ...formData, end_time: e.target.value })} className="[&::-webkit-calendar-picker-indicator]:ml-auto" />
+                {form.watch("pricingType") === "PAID" && (
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => {
+                      // Always show formatted value, or raw value when editing
+                      const currentValue = field.value || 0;
+                      const displayValue = priceDisplay !== "" 
+                        ? priceDisplay 
+                        : (currentValue > 0 ? formatVND(currentValue) : "");
+                      
+                      return (
+                        <FormItem>
+                          <FormLabel>Giá vé (VNĐ) <span className="text-destructive">*</span></FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="text" 
+                              value={displayValue} 
+                              onChange={(e) => {
+                                // Remove all non-digit characters
+                                const rawValue = e.target.value.replace(/[^\d]/g, '');
+                                const numValue = parseInt(rawValue) || 0;
+                                
+                                // Update form value
+                                field.onChange(numValue);
+                                
+                                // Auto-format as user types
+                                if (rawValue) {
+                                  setPriceDisplay(formatVND(numValue));
+                                } else {
+                                  setPriceDisplay("");
+                                }
+                              }}
+                              onFocus={(e) => {
+                                // When focused, show raw number for easier editing
+                                const rawValue = field.value ? field.value.toString() : "";
+                                setPriceDisplay(rawValue);
+                                // Select all text for easy replacement
+                                setTimeout(() => e.target.select(), 0);
+                              }}
+                              onBlur={(e) => {
+                                // Ensure formatted on blur
+                                const rawValue = e.target.value.replace(/[^\d]/g, '');
+                                const numValue = parseInt(rawValue) || 0;
+                                if (numValue > 0) {
+                                  setPriceDisplay(formatVND(numValue));
+                                } else {
+                                  setPriceDisplay("");
+                                }
+                                field.onBlur();
+                              }}
+                              placeholder="VD: 50.000"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                )}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mô tả</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Chi tiết về sự kiện..." rows={3} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  {form.watch("format") === "OFFLINE" ? (
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Địa điểm <span className="text-destructive">*</span></FormLabel>
+                          <FormControl>
+                            <Input placeholder="VD: Hội trường A" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <FormField
+                      control={form.control}
+                      name="onlineLink"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Link trực tuyến <span className="text-destructive">*</span></FormLabel>
+                          <FormControl>
+                            <Input placeholder="VD: https://meet.google.com/xxx-xxxx-xxx" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  <FormField
+                    control={form.control}
+                    name="capacity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Số người tối đa <span className="text-muted-foreground text-xs">(Để trống = không giới hạn)</span></FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min={1}
+                            {...field}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '') {
+                                field.onChange(undefined);
+                              } else {
+                                const numValue = parseInt(value);
+                                if (!isNaN(numValue) && numValue > 0) {
+                                  field.onChange(numValue);
+                                }
+                              }
+                            }}
+                            value={field.value || ''}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="max_attendees">Số người tối đa</Label>
-                <Input id="max_attendees" type="number" value={formData.max_attendees} onChange={(e) => setFormData({ ...formData, max_attendees: parseInt(e.target.value) })} min={1} />
-              </div>
-            </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="visibleFrom"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Hiển thị từ <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="datetime-local" 
+                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:invert dark:[&::-webkit-calendar-picker-indicator]:invert-0"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="startTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Thời gian bắt đầu <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="datetime-local" 
+                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:invert dark:[&::-webkit-calendar-picker-indicator]:invert-0"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="endTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Thời gian kết thúc</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="datetime-local" 
+                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:invert dark:[&::-webkit-calendar-picker-indicator]:invert-0"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </form>
+            </Form>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setShowCreateDialog(false); resetForm(); }}>Hủy</Button>
-              <Button onClick={editingEvent ? handleUpdate : handleCreate}>{editingEvent ? "Lưu thay đổi" : "Tạo sự kiện"}</Button>
+              <Button 
+                type="button"
+                variant="outline" 
+                onClick={() => { setShowCreateDialog(false); resetForm(); }} 
+                disabled={isSubmitting}
+              >
+                Hủy
+              </Button>
+              <Button 
+                type="submit"
+                form="event-form"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  editingEvent ? "Lưu thay đổi" : "Tạo sự kiện"
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

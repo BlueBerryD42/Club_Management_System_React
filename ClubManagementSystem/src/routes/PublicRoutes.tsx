@@ -6,6 +6,7 @@ import UnauthorizedPage from '@/pages/UnauthorizedPage';
 import Clubs from '@/pages/mainlayout/Clubs';
 import ClubDetail from '@/pages/mainlayout/ClubDetail';
 import Events from '@/pages/mainlayout/Events';
+import EventDetail from '@/pages/mainlayout/EventDetail';
 import About from '@/pages/mainlayout/About';
 
 const PublicRoutes: RouteObject[] = [
@@ -24,6 +25,10 @@ const PublicRoutes: RouteObject[] = [
     {
         path: '/events',
         element: <Events />,
+    },
+    {
+        path: '/events/:id',
+        element: <EventDetail />,
     },
     {
         path: '/about',

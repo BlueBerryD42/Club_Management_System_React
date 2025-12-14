@@ -7,6 +7,7 @@ import MemberManagement from '@/pages/clubleader/MemberManagement';
 import EventManagement from '@/pages/clubleader/EventManagement';
 import JoinRequests from '@/pages/clubleader/JoinRequests';
 import EventAttendees from '@/pages/clubleader/EventAttendees';
+import EventDetailManagement from '@/pages/clubleader/EventDetailManagement';
 import FeeManagement from '@/pages/clubleader/FeeManagement';
 
 const ClubLeaderRoutes: RouteObject = {
@@ -32,7 +33,11 @@ const ClubLeaderRoutes: RouteObject = {
             element: <EventManagement />,
         },
         {
-            path: 'events/:eventId',
+            path: 'events/:eventId/manage',
+            element: <EventDetailManagement />,
+        },
+        {
+            path: 'events/:eventId/attendees',
             element: <EventAttendees />,
         },
         {

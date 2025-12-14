@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-// import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QRCodeSVG } from "qrcode.react";
 import { useAppSelector } from "@/store/hooks";
-// import axios from "axios"; // Use axios for mock API
 import { useToast } from "@/hooks/use-toast";
+import { ticketService, type Ticket } from "@/services/ticket.service";
 import { 
   Calendar, 
   MapPin, 
@@ -18,7 +19,7 @@ import {
   QrCode,
   Plus
 } from "lucide-react";
-import { format, isPast } from "date-fns";
+import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
 interface MyEvent {
@@ -27,6 +28,8 @@ interface MyEvent {
   status: string;
   checked_in: boolean;
   registered_at: string;
+  qrCode?: string | null;
+  event_format?: 'ONLINE' | 'OFFLINE';
   events: {
     id: string;
     title: string;
@@ -50,6 +53,8 @@ const MyEvents = () => {
   const { toast } = useToast();
   const [registrations, setRegistrations] = useState<MyEvent[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [selectedQRCode, setSelectedQRCode] = useState<string | null>(null);
+  const [selectedEventTitle, setSelectedEventTitle] = useState<string>("");
 
   // TODO: Khôi phục auth check khi kết nối API
   // useEffect(() => {
@@ -65,47 +70,72 @@ const MyEvents = () => {
   // }, [user]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
-  // Replace supabase API with mock data logic
   const fetchData = async () => {
     if (!user) return;
-    setLoadingData(true);
-    setTimeout(() => {
-      setRegistrations([
-        {
-          id: "1",
-          event_id: "event1",
-          status: "registered",
-          checked_in: false,
-          registered_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    try {
+      setLoadingData(true);
+      const response = await ticketService.getMyTickets();
+      console.log("MyEvents - API Response:", response);
+      
+      const tickets = response.data?.tickets || [];
+      console.log("MyEvents - Tickets:", tickets);
+      console.log("MyEvents - Tickets count:", tickets.length);
+      
+      if (!tickets || tickets.length === 0) {
+        console.log("MyEvents - No tickets found");
+        setRegistrations([]);
+        return;
+      }
+      
+      // Map tickets to MyEvent format
+      const mappedRegistrations: MyEvent[] = tickets.map((ticket: Ticket) => {
+        console.log("MyEvents - Mapping ticket:", ticket.id, "Event:", ticket.event?.title, "QRCode:", ticket.qrCode);
+        return {
+          id: ticket.id,
+          event_id: ticket.event.id,
+          status: ticket.status,
+          checked_in: !!ticket.usedAt, // Check-in if ticket has been used
+          registered_at: ticket.assignedAt || ticket.purchasedAt || ticket.createdAt,
+          qrCode: ticket.qrCode || null,
+          event_format: ticket.event.format,
           events: {
-            id: "event1",
-            title: "Hội thảo AI",
-            description: "Sự kiện về trí tuệ nhân tạo.",
-            location: "Hội trường A",
-            start_time: new Date(Date.now() + 86400000 * 2).toISOString(),
-            end_time: null,
-            image_url: null,
-            current_attendees: 50,
-            max_attendees: 100,
-            clubs: { name: "CLB Công nghệ" },
+            id: ticket.event.id,
+            title: ticket.event.title,
+            description: ticket.event.description,
+            location: ticket.event.location,
+            start_time: ticket.event.startTime,
+            end_time: ticket.event.endTime,
+            image_url: null, // Backend doesn't return image_url yet
+            current_attendees: null, // Backend doesn't return this yet
+            max_attendees: null, // Backend doesn't return this yet
+            clubs: {
+              name: ticket.event.club.name,
+            },
           },
-        },
-      ]);
+        };
+      });
+      
+      console.log("MyEvents - Mapped registrations:", mappedRegistrations);
+      setRegistrations(mappedRegistrations);
+    } catch (error: any) {
+      console.error("Error fetching tickets:", error);
+      console.error("Error details:", error.response?.data);
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể tải danh sách sự kiện",
+        variant: "destructive",
+      });
+      setRegistrations([]);
+    } finally {
       setLoadingData(false);
-    }, 800);
+    }
   };
 
-  // Replace supabase API with mock logic
-  const cancelRegistration = async (registrationId: string) => {
-    setRegistrations(prev => prev.filter(r => r.id !== registrationId));
-    toast({
-      title: "Đã huỷ",
-      description: "Đăng ký sự kiện đã được huỷ",
-    });
-  };
 
   if (loading) {
     return (
@@ -122,12 +152,35 @@ const MyEvents = () => {
     );
   }
 
-  const upcomingEvents = registrations.filter(r => !isPast(new Date(r.events.start_time)));
-  const pastEvents = registrations.filter(r => isPast(new Date(r.events.start_time)));
+  const upcomingEvents = registrations.filter(r => {
+    // Event is past if current time is after endTime (or startTime if no endTime)
+    const now = new Date();
+    const startDate = new Date(r.events.start_time);
+    const endDate = r.events.end_time ? new Date(r.events.end_time) : startDate;
+    const isPastEvent = now > endDate;
+    console.log("MyEvents - Filtering event:", r.events.title, "Start:", startDate, "End:", endDate, "Now:", now, "IsPast:", isPastEvent);
+    return !isPastEvent;
+  });
+  const pastEvents = registrations.filter(r => {
+    // Event is past if current time is after endTime (or startTime if no endTime)
+    const now = new Date();
+    const startDate = new Date(r.events.start_time);
+    const endDate = r.events.end_time ? new Date(r.events.end_time) : startDate;
+    const isPastEvent = now > endDate;
+    return isPastEvent;
+  });
+  
+  console.log("MyEvents - Total registrations:", registrations.length);
+  console.log("MyEvents - Upcoming events:", upcomingEvents.length);
+  console.log("MyEvents - Past events:", pastEvents.length);
 
-  const EventCard = ({ registration, showCancel = false }: { registration: MyEvent; showCancel?: boolean }) => {
+  const EventCard = ({ registration }: { registration: MyEvent }) => {
     const event = registration.events;
-    const isPastEvent = isPast(new Date(event.start_time));
+    // Event is past if current time is after endTime (or startTime if no endTime)
+    const now = new Date();
+    const startDate = new Date(event.start_time);
+    const endDate = event.end_time ? new Date(event.end_time) : startDate;
+    const isPastEvent = now > endDate;
 
     return (
       <Card className="hover:shadow-md transition-shadow">
@@ -185,21 +238,21 @@ const MyEvents = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex items-start gap-2 flex-shrink-0">
                   {!isPastEvent && (
                     <>
-                      <Button size="sm" variant="outline">
-                        <QrCode className="h-4 w-4 mr-1" />
-                        QR Check-in
-                      </Button>
-                      {showCancel && (
+                      {registration.event_format === 'OFFLINE' && registration.qrCode && (
                         <Button 
                           size="sm" 
-                          variant="ghost" 
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => cancelRegistration(registration.id)}
+                          variant="outline"
+                          className="whitespace-nowrap"
+                          onClick={() => {
+                            setSelectedQRCode(registration.qrCode!);
+                            setSelectedEventTitle(registration.events.title);
+                          }}
                         >
-                          Hủy đăng ký
+                          <QrCode className="h-4 w-4 mr-2" />
+                          QR Check-in
                         </Button>
                       )}
                     </>
@@ -260,7 +313,7 @@ const MyEvents = () => {
             ) : (
               <div className="grid gap-4">
                 {upcomingEvents.map((registration) => (
-                  <EventCard key={registration.id} registration={registration} showCancel />
+                  <EventCard key={registration.id} registration={registration} />
                 ))}
               </div>
             )}
@@ -284,6 +337,38 @@ const MyEvents = () => {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* QR Code Dialog */}
+        <Dialog open={!!selectedQRCode} onOpenChange={(open) => !open && setSelectedQRCode(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Mã QR Check-in</DialogTitle>
+              <DialogDescription>
+                Hiển thị mã QR này cho nhân viên để check-in vào sự kiện: {selectedEventTitle}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-4">
+              {selectedQRCode && (
+                <div className="p-4 bg-white rounded-lg border-2 border-primary/20">
+                  <QRCodeSVG 
+                    value={selectedQRCode} 
+                    size={256}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+              )}
+              <div className="text-center">
+                <p className="text-sm font-mono text-muted-foreground break-all bg-muted p-2 rounded">
+                  {selectedQRCode}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Nhân viên sẽ quét mã QR này để xác nhận check-in của bạn
+                </p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

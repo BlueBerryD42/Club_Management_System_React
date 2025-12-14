@@ -5,110 +5,132 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Search, Check, X } from "lucide-react";
+import { ArrowLeft, Search, Check, X, Loader2, Filter } from "lucide-react";
+import { eventService } from "@/services/event.service";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
-interface EventAttendee {
+interface Participant {
   id: string;
-  user_id: string;
-  event_id: string;
-  status: string;
-  checked_in: boolean;
-  checked_in_at: string | null;
-  full_name: string;
-  email: string;
-  student_id: string;
+  userId: string;
+  user: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    studentCode: string | null;
+    phone: string | null;
+  };
+  registeredAt: string;
+  checkedInAt: string | null;
+  isCheckedIn: boolean;
+  checkinMethod: string | null;
+}
+
+interface EventData {
+  id: string;
+  title: string;
+  format: string;
+  startTime: string;
+  endTime: string | null;
+  club: {
+    id: string;
+    name: string;
+  };
 }
 
 export default function EventAttendees() {
-  const { clubId } = useParams();
+  const { clubId, eventId } = useParams<{ clubId: string; eventId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [event] = useState({
-    id: "1",
-    title: "Workshop Kỹ năng mềm",
-    start_time: new Date(Date.now() + 86400000 * 7).toISOString(),
-  });
-  const [attendees, setAttendees] = useState<EventAttendee[]>([]);
+  const [event, setEvent] = useState<EventData | null>(null);
+  const [attendees, setAttendees] = useState<Participant[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [checkInFilter, setCheckInFilter] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
+  const [checkingIn, setCheckingIn] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock data
-    const mockAttendees: EventAttendee[] = [
-      {
-        id: "1",
-        user_id: "user1",
-        event_id: "1",
-        status: "registered",
-        checked_in: true,
-        checked_in_at: new Date().toISOString(),
-        full_name: "Nguyễn Văn A",
-        email: "a@student.edu.vn",
-        student_id: "20210001",
-      },
-      {
-        id: "2",
-        user_id: "user2",
-        event_id: "1",
-        status: "registered",
-        checked_in: false,
-        checked_in_at: null,
-        full_name: "Trần Thị B",
-        email: "b@student.edu.vn",
-        student_id: "20210002",
-      },
-      {
-        id: "3",
-        user_id: "user3",
-        event_id: "1",
-        status: "pending",
-        checked_in: false,
-        checked_in_at: null,
-        full_name: "Lê Văn C",
-        email: "c@student.edu.vn",
-        student_id: "20210003",
-      },
-    ];
-    setAttendees(mockAttendees);
-  }, []);
+    if (eventId) {
+      fetchData();
+    }
+  }, [eventId]);
 
-  const handleCheckIn = async (attendeeId: string) => {
-    // TODO: Kết nối API
-    setAttendees(
-      attendees.map((a) =>
-        a.id === attendeeId
-          ? { ...a, checked_in: true, checked_in_at: new Date().toISOString() }
-          : a
-      )
-    );
-    toast({ title: "Thành công", description: "Đã điểm danh" });
+  useEffect(() => {
+    // Debounce search and filter changes
+    const timer = setTimeout(() => {
+      if (eventId) {
+        fetchData();
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, checkInFilter]);
+
+  const fetchData = async () => {
+    if (!eventId) return;
+    try {
+      setLoading(true);
+      // Fetch event details
+      const eventData = await eventService.getById(eventId);
+      setEvent({
+        id: eventData.id,
+        title: eventData.title,
+        format: eventData.format,
+        startTime: eventData.startTime,
+        endTime: eventData.endTime,
+        club: eventData.club,
+      });
+
+      // Fetch participants with search query and filter
+      const participantsResponse = await eventService.getParticipants(eventId, {
+        search: searchQuery || undefined,
+        checkedIn: checkInFilter !== "all" ? checkInFilter : undefined,
+      });
+      setAttendees(participantsResponse.data?.participants || []);
+    } catch (error: any) {
+      console.error("Error fetching data:", error);
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể tải dữ liệu",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRemoveCheckIn = async (attendeeId: string) => {
-    // TODO: Kết nối API
-    setAttendees(
-      attendees.map((a) =>
-        a.id === attendeeId
-          ? { ...a, checked_in: false, checked_in_at: null }
-          : a
-      )
-    );
-    toast({ title: "Thành công", description: "Đã bỏ điểm danh" });
+  const handleCheckIn = async (email: string, participantId: string) => {
+    if (!eventId) return;
+    try {
+      setCheckingIn(participantId);
+      await eventService.checkInByEmail(eventId, email);
+      toast({
+        title: "Thành công",
+        description: "Đã điểm danh thành công",
+      });
+      // Refresh data
+      await fetchData();
+    } catch (error: any) {
+      console.error("Error checking in:", error);
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể điểm danh",
+        variant: "destructive",
+      });
+    } finally {
+      setCheckingIn(null);
+    }
   };
-
-  const filteredAttendees = attendees.filter(
-    (a) =>
-      a.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.student_id.includes(searchQuery)
-  );
 
   const stats = {
     total: attendees.length,
-    registered: attendees.filter((a) => a.status === "registered").length,
-    checked_in: attendees.filter((a) => a.checked_in).length,
-    pending: attendees.filter((a) => a.status === "pending").length,
+    registered: attendees.length, // All participants are registered
+    checked_in: attendees.filter((a) => a.isCheckedIn).length,
+    pending: 0, // Backend doesn't have pending status
   };
 
   return (
@@ -121,48 +143,77 @@ export default function EventAttendees() {
           </Link>
         </Button>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">{event.title}</h1>
-          <p className="text-muted-foreground mt-2">Quản lý người tham dự sự kiện</p>
-        </div>
+        {loading ? (
+          <div className="space-y-4 mb-8">
+            <Skeleton className="h-9 w-64" />
+            <Skeleton className="h-5 w-48" />
+          </div>
+        ) : event ? (
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground">{event.title}</h1>
+            <p className="text-muted-foreground mt-2">Quản lý người tham dự sự kiện</p>
+          </div>
+        ) : null}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Tổng đăng ký</p>
-              <p className="text-2xl font-bold mt-2">{stats.registered}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Đã điểm danh</p>
-              <p className="text-2xl font-bold mt-2 text-success">{stats.checked_in}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Chờ duyệt</p>
-              <p className="text-2xl font-bold mt-2 text-warning">{stats.pending}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Tổng cộng</p>
-              <p className="text-2xl font-bold mt-2">{stats.total}</p>
-            </CardContent>
-          </Card>
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="pt-6">
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-8 w-16" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Tổng đăng ký</p>
+                <p className="text-2xl font-bold mt-2">{stats.registered}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Đã điểm danh</p>
+                <p className="text-2xl font-bold mt-2 text-success">{stats.checked_in}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Chưa điểm danh</p>
+                <p className="text-2xl font-bold mt-2 text-warning">{stats.total - stats.checked_in}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <Card>
           <CardHeader>
-            <div className="flex gap-2">
-              <Search className="h-5 w-5 text-muted-foreground" />
-              <Input
-                placeholder="Tìm kiếm theo tên, email hoặc MSSV..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="border-0"
-              />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex items-center gap-2 flex-1">
+                <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <Input
+                  placeholder="Tìm kiếm theo tên, email hoặc MSSV..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="border-0"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <Select value={checkInFilter} onValueChange={setCheckInFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Lọc theo trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="true">Đã điểm danh</SelectItem>
+                    <SelectItem value="false">Chưa điểm danh</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -178,56 +229,71 @@ export default function EventAttendees() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAttendees.length === 0 ? (
+                {loading ? (
+                  <>
+                    {[1, 2, 3].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </>
+                ) : attendees.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      Không tìm thấy người tham dự nào
+                      {searchQuery ? "Không tìm thấy người tham dự nào" : "Chưa có người tham dự"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAttendees.map((attendee) => (
+                  attendees.map((attendee) => (
                     <TableRow key={attendee.id}>
-                      <TableCell className="font-medium">{attendee.full_name}</TableCell>
-                      <TableCell>{attendee.email}</TableCell>
-                      <TableCell>{attendee.student_id}</TableCell>
+                      <TableCell className="font-medium">
+                        {attendee.user.fullName || "N/A"}
+                      </TableCell>
+                      <TableCell>{attendee.user.email}</TableCell>
+                      <TableCell>{attendee.user.studentCode || "N/A"}</TableCell>
                       <TableCell>
-                        {attendee.status === "registered" ? (
-                          <Badge className="bg-success/20 text-success">Đã đăng ký</Badge>
-                        ) : (
-                          <Badge className="bg-warning/20 text-warning">Chờ duyệt</Badge>
-                        )}
+                        <Badge className="bg-success/20 text-success">Đã đăng ký</Badge>
                       </TableCell>
                       <TableCell>
-                        {attendee.checked_in ? (
+                        {attendee.isCheckedIn ? (
                           <div className="flex items-center gap-1">
                             <Check className="h-4 w-4 text-success" />
-                            <span className="text-sm">{new Date(attendee.checked_in_at!).toLocaleTimeString("vi-VN")}</span>
+                            <span className="text-sm">
+                              {attendee.checkedInAt
+                                ? format(new Date(attendee.checkedInAt), "HH:mm", { locale: vi })
+                                : ""}
+                            </span>
                           </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">Chưa điểm danh</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {!attendee.checked_in ? (
+                        {!attendee.isCheckedIn ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleCheckIn(attendee.id)}
+                            onClick={() => handleCheckIn(attendee.user.email, attendee.id)}
+                            disabled={checkingIn === attendee.id}
                             className="text-success border-success hover:bg-success/10"
                           >
-                            <Check className="h-4 w-4 mr-1" />
+                            {checkingIn === attendee.id ? (
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4 mr-1" />
+                            )}
                             Điểm danh
                           </Button>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRemoveCheckIn(attendee.id)}
-                            className="text-destructive border-destructive hover:bg-destructive/10"
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Bỏ điểm danh
-                          </Button>
+                          <Badge className="bg-success/20 text-success">
+                            <Check className="h-3 w-3 mr-1" />
+                            Đã điểm danh
+                          </Badge>
                         )}
                       </TableCell>
                     </TableRow>
