@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Search, Check, X, Loader2, Filter } from "lucide-react";
+import { ArrowLeft, Search, Check, Loader2, Filter } from "lucide-react";
 import { eventService } from "@/services/event.service";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -44,7 +44,6 @@ interface EventData {
 
 export default function EventAttendees() {
   const { clubId, eventId } = useParams<{ clubId: string; eventId: string }>();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [event, setEvent] = useState<EventData | null>(null);
   const [attendees, setAttendees] = useState<Participant[]>([]);

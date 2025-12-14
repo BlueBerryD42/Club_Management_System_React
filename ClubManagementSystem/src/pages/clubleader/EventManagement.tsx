@@ -146,7 +146,7 @@ export default function EventManagement() {
         location: event.location,
         startTime: event.startTime,
         endTime: event.endTime,
-        capacity: event.capacity ?? undefined,
+        capacity: event.capacity ?? null,
         type: event.type,
         pricingType: event.pricingType,
         price: event.price,
@@ -266,49 +266,6 @@ export default function EventManagement() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleDelete = async (eventId: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa sự kiện này?")) {
-      return;
-    }
-
-    try {
-      await eventService.delete(eventId);
-      toast({ title: "Thành công", description: "Đã xóa sự kiện" });
-      fetchEvents();
-    } catch (error: any) {
-      console.error("Error deleting event:", error);
-      toast({
-        title: "Lỗi",
-        description: error.response?.data?.message || "Không thể xóa sự kiện",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const openEditDialog = (event: Event) => {
-    setEditingEvent(event);
-    const startDate = new Date(event.startTime);
-    const endDate = event.endTime ? new Date(event.endTime) : null;
-    const visibleFromDate = event.visibleFrom ? new Date(event.visibleFrom) : null;
-    
-    form.reset({
-      title: event.title,
-      description: event.description || "",
-      location: event.location || "",
-      onlineLink: event.onlineLink || "",
-      startTime: format(startDate, "yyyy-MM-dd'T'HH:mm"),
-      endTime: endDate ? format(endDate, "yyyy-MM-dd'T'HH:mm") : "",
-      capacity: event.capacity ?? undefined,
-      type: event.type,
-      pricingType: event.pricingType,
-      price: event.price,
-      format: event.format,
-      visibleFrom: visibleFromDate ? format(visibleFromDate, "yyyy-MM-dd'T'HH:mm") : "",
-    });
-    setPriceDisplay(event.price > 0 ? formatVND(event.price) : "");
-    setShowCreateDialog(true);
   };
 
   const getStatusBadge = (event: Event) => {

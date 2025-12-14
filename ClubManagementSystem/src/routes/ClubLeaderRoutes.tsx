@@ -1,5 +1,4 @@
 import type { RouteObject } from 'react-router-dom';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import ClubLeaderLayout from '@/layouts/ClubLeaderLayout';
 import Dashboard from '@/pages/clubleader/Dashboard';
 import Settings from '@/pages/clubleader/Settings';

@@ -17,7 +17,19 @@ import { Search, Users, Star, Grid3X3, List, Loader2 } from "lucide-react";
 
 const categories = ["Tất cả", "Học thuật", "Nghệ thuật", "Xã hội", "Kinh doanh", "Thể thao", "Văn hóa"];
 
-const allClubsMock = [
+interface ClubItem {
+  id: string | number;
+  name: string;
+  category: string;
+  members: number;
+  description: string;
+  image: string;
+  isRecruiting: boolean;
+  rating: number;
+  slug?: string;
+}
+
+const allClubsMock: ClubItem[] = [
   {
     id: 1,
     name: "CLB Tin học",
@@ -134,7 +146,7 @@ const Clubs = () => {
   });
 
   // Map backend data to frontend format
-  const allClubs = clubsData?.data?.map((club: any) => ({
+  const allClubs: ClubItem[] = clubsData?.data?.map((club: any) => ({
     id: club.id,
     name: club.name,
     category: club.description?.includes('học') ? 'Học thuật' : 
