@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -30,7 +30,6 @@ interface JoinRequestWithProfile {
 
 export default function JoinRequests() {
   const { clubId } = useParams();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [requests, setRequests] = useState<JoinRequestWithProfile[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<JoinRequestWithProfile | null>(null);
@@ -39,7 +38,7 @@ export default function JoinRequests() {
   const [activeTab, setActiveTab] = useState("pending");
 
   const queryClient = useQueryClient();
-  const { data: appsResp, isLoading } = useQuery({
+  const { data: appsResp } = useQuery({
     queryKey: ["club-applications", clubId],
     queryFn: async () => {
       const res = await clubApi.getClubApplications(clubId!);

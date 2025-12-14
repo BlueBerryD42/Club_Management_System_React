@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,6 @@ interface MemberWithProfile {
 
 export default function MemberManagement() {
   const { clubId } = useParams();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [members, setMembers] = useState<MemberWithProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,7 +108,7 @@ export default function MemberManagement() {
     setSelectedMember(null);
   };
 
-  const handleRemoveMember = async (memberId: string) => {
+  const handleRemoveMember = async (_memberId: string) => {
     // TODO: Kết nối API
     toast({ title: "Thành công", description: "Đã xóa thành viên khỏi CLB" });
   };

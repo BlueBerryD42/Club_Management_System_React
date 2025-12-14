@@ -45,7 +45,7 @@ const faculties = [
 
 const Profile = () => {
   const { toast } = useToast();
-  const { user, profile, isLoading, refetch } = useUserProfile();
+  const { user, isLoading, refetch } = useUserProfile();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",

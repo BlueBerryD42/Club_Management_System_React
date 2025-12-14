@@ -4,10 +4,15 @@ import StaffLayout from '@/layouts/StaffLayout';
 import StaffDashboard from '@/pages/staff/StaffDashboard';
 import CheckInPage from '@/pages/staff/CheckInPage';
 import FundRequestPage from '@/pages/staff/FundRequestPage';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 const StaffRoutes: RouteObject = {
   path: '/staff',
-  element: <StaffLayout />,
+  element: (
+    <ProtectedRoute allowedRoles={['STAFF']}>
+      <StaffLayout />
+    </ProtectedRoute>
+  ),
   children: [
     {
       path: 'dashboard',

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,6 @@ const CATEGORIES = [
 
 export default function ClubSettings() {
   const { clubId } = useParams();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [club, setClub] = useState<Club | null>(null);
   const [saving, setSaving] = useState(false);

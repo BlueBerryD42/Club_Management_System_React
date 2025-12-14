@@ -3,6 +3,7 @@ import PublicRoutes from './PublicRoutes';
 import AdminRoutes from './AdminRoutes';
 import ClubLeaderRoutes from './ClubLeaderRoutes';
 import MemberRoutes from './MemberRoutes';
+import StaffRoutes from './StaffRoutes';
 import NotFound from '@/pages/mainlayout/NotFound';
 
 const router = createBrowserRouter([
@@ -10,6 +11,7 @@ const router = createBrowserRouter([
     AdminRoutes,
     ClubLeaderRoutes,
     MemberRoutes,
+    StaffRoutes,
     // Catch-all route for 404
     {
         path: '*',
