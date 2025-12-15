@@ -19,6 +19,7 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  UserCog,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -247,6 +248,11 @@ const EventDetail = () => {
   const registrationOpen = isRegistrationOpen(event);
   const currentAttendees = event._count?.tickets || 0;
   
+  // Check if current user is event staff
+  const isEventStaff = user && event.staff 
+    ? event.staff.some(staff => staff.userId === user.id)
+    : false;
+  
   // Event status logic using startTime and endTime
   // Note: Dates from backend are in UTC (Z timezone), JavaScript Date automatically
   // converts them to local timezone for comparison. Comparisons use underlying timestamps.
@@ -319,20 +325,59 @@ const EventDetail = () => {
               <CardContent className="p-6">
                 <h2 className="text-xl font-semibold mb-4">Thông tin chi tiết</h2>
                 <div className="space-y-4">
+                  {/* Registration Open Time */}
+                  {event.visibleFrom && (
+                    <div className="flex items-start gap-3">
+                      <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <div className="font-medium">Mở đăng ký từ</div>
+                        <div className="text-sm text-muted-foreground">
+                          {format(new Date(event.visibleFrom), "EEEE, dd/MM/yyyy", { locale: vi })}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {format(new Date(event.visibleFrom), "HH:mm", { locale: vi })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Start Time */}
                   <div className="flex items-start gap-3">
                     <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                     <div>
-                      <div className="font-medium">Thời gian</div>
+                      <div className="font-medium">Thời gian bắt đầu</div>
                       <div className="text-sm text-muted-foreground">
                         {format(new Date(event.startTime), "EEEE, dd/MM/yyyy", { locale: vi })}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                        <Clock className="h-4 w-4" />
+                      <div className="text-sm text-muted-foreground">
                         {format(new Date(event.startTime), "HH:mm", { locale: vi })}
-                        {event.endTime && ` - ${format(new Date(event.endTime), "HH:mm", { locale: vi })}`}
                       </div>
                     </div>
                   </div>
+
+                  {/* End Time */}
+                  {event.endTime ? (
+                    <div className="flex items-start gap-3">
+                      <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <div className="font-medium">Thời gian kết thúc</div>
+                        <div className="text-sm text-muted-foreground">
+                          {format(new Date(event.endTime), "EEEE, dd/MM/yyyy", { locale: vi })}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {format(new Date(event.endTime), "HH:mm", { locale: vi })}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <div className="font-medium">Thời gian kết thúc</div>
+                        <div className="text-sm text-muted-foreground">Chưa có</div>
+                      </div>
+                    </div>
+                  )}
 
                   {event.format === "OFFLINE" && event.location && (
                     <div className="flex items-start gap-3">
@@ -464,6 +509,18 @@ const EventDetail = () => {
                     >
                       <Calendar className="h-4 w-4 mr-2" />
                       Thêm vào Google Calendar
+                    </Button>
+                  )}
+
+                  {isEventStaff && !isPast && (
+                    <Button
+                      onClick={() => navigate("/staff/dashboard")}
+                      variant="default"
+                      className="w-full"
+                      size="lg"
+                    >
+                      <UserCog className="h-4 w-4 mr-2" />
+                      Trang quản lý nhân sự
                     </Button>
                   )}
                 </div>

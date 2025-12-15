@@ -33,11 +33,17 @@ export interface Event {
     tickets: number;
   };
   staff?: Array<{
+    id: string;
+    eventId: string;
     userId: string;
-    user?: {
+    createdAt: string;
+    user: {
       id: string;
       email: string;
       fullName: string | null;
+      studentCode: string | null;
+      avatarUrl: string | null;
+      phone: string | null;
     };
   }>;
 }
@@ -46,6 +52,7 @@ export interface GetEventsParams {
   clubId?: string;
   type?: 'PUBLIC' | 'INTERNAL';
   pricingType?: 'FREE' | 'PAID';
+  includeInactive?: string; // 'true' to include inactive/ended events
 }
 
 export interface CreateEventPayload {

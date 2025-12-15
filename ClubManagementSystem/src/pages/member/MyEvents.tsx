@@ -11,6 +11,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useAppSelector } from "@/store/hooks";
 import { useToast } from "@/hooks/use-toast";
 import { ticketService, type Ticket } from "@/services/ticket.service";
+import { eventService } from "@/services/event.service";
 import { 
   Calendar, 
   MapPin, 
@@ -18,7 +19,8 @@ import {
   Users,
   QrCode,
   Link as LinkIcon,
-  Search
+  Search,
+  UserCog
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -53,9 +55,12 @@ const MyEvents = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [registrations, setRegistrations] = useState<MyEvent[]>([]);
+  const [staffEvents, setStaffEvents] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadingStaffEvents, setLoadingStaffEvents] = useState(false);
   const [selectedQRCode, setSelectedQRCode] = useState<string | null>(null);
   const [selectedEventTitle, setSelectedEventTitle] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "staff">("upcoming");
 
   // TODO: Khôi phục auth check khi kết nối API
   // useEffect(() => {
@@ -73,6 +78,7 @@ const MyEvents = () => {
   useEffect(() => {
     if (user) {
       fetchData();
+      fetchStaffEvents();
     }
   }, [user]);
 
@@ -142,6 +148,29 @@ const MyEvents = () => {
     }
   };
 
+  const fetchStaffEvents = async () => {
+    if (!user) return;
+    try {
+      setLoadingStaffEvents(true);
+      // Include inactive events so staff can see all their assigned events, including ended ones
+      const eventsResponse = await eventService.getAll({ includeInactive: 'true' });
+      const allEvents = eventsResponse.data || [];
+      
+      // Filter events where current user is staff
+      const filtered = allEvents.filter((event: any) => 
+        event.staff?.some((staff: any) => staff.userId === user?.id)
+      );
+      
+      setStaffEvents(filtered);
+    } catch (error: any) {
+      console.error('Error fetching staff events:', error);
+      // Don't show error toast, just log it
+      setStaffEvents([]);
+    } finally {
+      setLoadingStaffEvents(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -188,7 +217,6 @@ const MyEvents = () => {
     const endDate = event.end_time ? new Date(event.end_time) : startDate;
     const isPastEvent = now > endDate;
     const isOngoing = now >= startDate && now <= endDate;
-    const isUpcoming = now < startDate;
     const isOnlineEvent = registration.event_format === 'ONLINE';
     const isOnlineUrl = isOnlineEvent && !!event.location && /^https?:\/\//.test(event.location);
 
@@ -327,13 +355,17 @@ const MyEvents = () => {
           </Button>
         </div>
 
-        <Tabs defaultValue="upcoming" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "upcoming" | "past" | "staff")} className="space-y-6">
           <TabsList>
             <TabsTrigger value="upcoming">
               Sắp diễn ra ({upcomingEvents.length})
             </TabsTrigger>
             <TabsTrigger value="past">
               Đã qua ({pastEvents.length})
+            </TabsTrigger>
+            <TabsTrigger value="staff">
+              <UserCog className="h-4 w-4 mr-2" />
+              Nhân viên ({staffEvents.length})
             </TabsTrigger>
           </TabsList>
 
@@ -378,6 +410,127 @@ const MyEvents = () => {
                 {pastEvents.map((registration) => (
                   <EventCard key={registration.id} registration={registration} />
                 ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="staff">
+            {loadingStaffEvents ? (
+              <div className="grid gap-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-40" />
+                ))}
+              </div>
+            ) : staffEvents.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <UserCog className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-lg font-medium mb-2">Chưa được phân công sự kiện nào</h3>
+                  <p className="text-muted-foreground">Các sự kiện bạn là nhân viên sẽ hiển thị ở đây</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {staffEvents.map((event) => {
+                  const now = new Date();
+                  const startDate = new Date(event.startTime);
+                  const endDate = event.endTime ? new Date(event.endTime) : startDate;
+                  const isPastEvent = now > endDate;
+                  const isOngoing = now >= startDate && now <= endDate;
+                  const isOnlineEvent = event.format === 'ONLINE';
+
+                  return (
+                    <Card
+                      key={event.id}
+                      className="hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => navigate(`/events/${event.id}`)}
+                    >
+                      <CardContent className="p-0">
+                        <div className="flex flex-col md:flex-row">
+                          {/* Image */}
+                          <div className="md:w-48 h-40 md:h-auto bg-primary/10 flex-shrink-0">
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Calendar className="h-12 w-12 text-primary/50" />
+                            </div>
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 p-6">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="secondary">{event.club?.name}</Badge>
+                                  <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+                                    <UserCog className="h-3 w-3 mr-1" />
+                                    Nhân viên
+                                  </Badge>
+                                  {isPastEvent && (
+                                    <Badge variant="outline">Đã kết thúc</Badge>
+                                  )}
+                                </div>
+                                <h3 className="font-semibold text-lg mb-2">{event.title}</h3>
+                                
+                                <div className="space-y-1 text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4" />
+                                    <span>
+                                      {format(new Date(event.startTime), "EEEE, dd/MM/yyyy - HH:mm", { locale: vi })}
+                                    </span>
+                                  </div>
+                                  {event.location && !isOnlineEvent && (
+                                    <div className="flex items-center gap-2">
+                                      <MapPin className="h-4 w-4" />
+                                      <span>{event.location}</span>
+                                    </div>
+                                  )}
+                                  {event.onlineLink && isOnlineEvent && (
+                                    <div className="flex items-center gap-2">
+                                      <LinkIcon className="h-4 w-4" />
+                                      <a 
+                                        href={event.onlineLink} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline break-all"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {event.onlineLink}
+                                      </a>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4" />
+                                    <span>
+                                      Trạng thái:{" "}
+                                      {isPastEvent
+                                        ? "Đã kết thúc"
+                                        : isOngoing
+                                          ? "Đang diễn ra"
+                                          : "Sắp diễn ra"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start gap-2 flex-shrink-0">
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/staff/dashboard`);
+                                  }}
+                                >
+                                  <UserCog className="h-4 w-4 mr-2" />
+                                  Quản lý
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
