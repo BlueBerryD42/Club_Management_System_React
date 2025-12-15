@@ -97,12 +97,26 @@ const Dashboard = () => {
     }
   });
 
-  // Computed stats based on clubsData
+  // Fetch user's pending applications
+  const { data: applicationsData } = useQuery({
+    queryKey: ['my-applications', 'PENDING'],
+    queryFn: async () => {
+      const res = await clubApi.getMyApplications({ status: 'PENDING' });
+      return res.data;
+    },
+    enabled: !!user,
+  });
+
+  // Filter to count only applications submitted BY the current user (not TO their clubs)
+  const allApplications = applicationsData?.data || applicationsData?.applications || [];
+  const userOwnApplications = allApplications.filter((app: any) => app.userId === user?.id);
+
+  // Computed stats based on clubsData and applicationsData
   const stats = {
     myClubs: clubsLoading ? 0 : clubsData.length,
     upcomingEvents: 0,
     pendingFees: 0,
-    pendingRequests: 0,
+    pendingRequests: userOwnApplications.length,
   };
 
   const loading = false;
@@ -154,7 +168,7 @@ const Dashboard = () => {
       icon: Clock,
       color: "text-accent",
       bgColor: "bg-accent/10",
-      href: "/my-clubs",
+      href: "/member/pending-applications",
     },
   ];
 

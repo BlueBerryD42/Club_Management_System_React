@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,9 +32,10 @@ import {
 
 const ClubDetail = () => {
   const { id } = useParams<{ id: string }>();
-  
+
   // Get current user from Redux (must be called before any early returns)
   const user = useAppSelector((s) => s.auth.user);
+  const queryClient = useQueryClient();
 
   // Fetch club details from API
   const { data: clubResponse, isLoading, error } = useQuery({
@@ -44,6 +45,16 @@ const ClubDetail = () => {
       return response.data;
     },
     enabled: !!id,
+  });
+
+  // Fetch user's applications to check pending status
+  const { data: applicationsResponse } = useQuery({
+    queryKey: ['my-applications'],
+    queryFn: async () => {
+      const response = await clubApi.getMyApplications();
+      return response.data;
+    },
+    enabled: !!user,
   });
 
   // Show loading state
@@ -76,15 +87,15 @@ const ClubDetail = () => {
   const clubData = {
     id: club.id,
     name: club.name,
-    category: club.description?.includes('học') ? 'Học thuật' : 
-              club.description?.includes('nghệ thuật') ? 'Nghệ thuật' :
-              club.description?.includes('tình nguyện') ? 'Xã hội' :
-              club.description?.includes('thể thao') ? 'Thể thao' : 'Văn hóa',
+    category: club.description?.includes('học') ? 'Học thuật' :
+      club.description?.includes('nghệ thuật') ? 'Nghệ thuật' :
+        club.description?.includes('tình nguyện') ? 'Xã hội' :
+          club.description?.includes('thể thao') ? 'Thể thao' : 'Văn hóa',
     members: club._count?.memberships || 0,
     description: club.description || '',
     longDescription: club.description || '',
     image: club.logoUrl || "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&h=400&fit=crop",
-    isRecruiting: club.status === 'ACTIVE',
+    isRecruiting: club.isActive === true, // Allow joining if club is active
     rating: 4.8,
     totalReviews: 45,
     foundedYear: new Date(club.createdAt).getFullYear(),
@@ -129,9 +140,23 @@ const ClubDetail = () => {
       { id: 4, name: "Hoàng Văn E", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" },
     ],
   };
-  
+
   // Check if user is already a member of this club
   const isMember = !!user?.memberships?.some(m => m.clubId === clubData.id && m.status === 'ACTIVE');
+
+  // Check if user has a pending application
+  const hasPendingApplication = !!(applicationsResponse?.data || applicationsResponse?.applications)?.some(
+    (app: any) => app.clubId === clubData.id && app.status === 'PENDING'
+  );
+
+  // Determine button state
+  const getButtonState = () => {
+    if (isMember) return { label: "Bạn đã là thành viên", disabled: true };
+    if (hasPendingApplication) return { label: "Đã gửi đơn - Chờ duyệt", disabled: true };
+    return { label: "Đăng ký tham gia", disabled: !clubData.isRecruiting };
+  };
+
+  const buttonState = getButtonState();
 
   return (
     <Layout>
@@ -144,7 +169,7 @@ const ClubDetail = () => {
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/40 to-transparent" />
-          
+
           {/* Back Button */}
           <div className="absolute top-4 left-4">
             <Button variant="secondary" size="sm" asChild>
@@ -197,16 +222,6 @@ const ClubDetail = () => {
                   </div>
                 </div>
               </div>
-              <JoinClubDialog
-                clubId={clubData.id.toString()}
-                clubName={clubData.name}
-                disabled={!clubData.isRecruiting}
-                triggerLabel="Đăng ký tham gia"
-                onSubmitted={(payload) => {
-                  console.log("Join request submitted:", payload);
-                  // TODO: Add to pending requests list or refresh data
-                }}
-              />
             </div>
           </div>
         </div>
@@ -416,8 +431,12 @@ const ClubDetail = () => {
                     <JoinClubDialog
                       clubId={clubData.id}
                       clubName={clubData.name}
-                      triggerLabel={isMember ? "Bạn đã là thành viên" : "Đăng ký tham gia"}
-                      disabled={isMember}
+                      triggerLabel={buttonState.label}
+                      disabled={buttonState.disabled}
+                      onSubmitted={() => {
+                        // Refresh applications list after successful submission
+                        queryClient.invalidateQueries({ queryKey: ['my-applications'] });
+                      }}
                     />
                   </div>
                 </CardContent>

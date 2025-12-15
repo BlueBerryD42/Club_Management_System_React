@@ -149,10 +149,7 @@ const Clubs = () => {
   const allClubs: ClubItem[] = clubsData?.data?.map((club: any) => ({
     id: club.id,
     name: club.name,
-    category: club.description?.includes('học') ? 'Học thuật' : 
-              club.description?.includes('nghệ thuật') || club.description?.includes('âm nhạc') ? 'Nghệ thuật' :
-              club.description?.includes('tình nguyện') ? 'Xã hội' :
-              club.description?.includes('thể thao') ? 'Thể thao' : 'Văn hóa',
+    category: club.category || 'Văn hóa', // Use category field from backend, fallback to Văn hóa
     members: club._count?.memberships || 0,
     description: club.description || '',
     image: club.logoUrl || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=300&fit=crop',
@@ -165,7 +162,9 @@ const Clubs = () => {
     .filter((club) => {
       const matchesSearch = club.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         club.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === "Tất cả" || club.category === selectedCategory;
+      // Case-insensitive category matching
+      const matchesCategory = selectedCategory === "Tất cả" || 
+        (club.category?.toLowerCase() === selectedCategory.toLowerCase());
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
@@ -202,19 +201,18 @@ const Clubs = () => {
             </div>
 
             {/* Category Filter */}
-            <div className="flex gap-2 flex-wrap">
-              {categories.map((cat) => (
-                <Button
-                  key={cat}
-                  variant={selectedCategory === cat ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat)}
-                  className="shrink-0"
-                >
-                  {cat}
-                </Button>
-              ))}
-            </div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-[180px] h-12">
+                <SelectValue placeholder="Danh mục" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Sort & View Options */}

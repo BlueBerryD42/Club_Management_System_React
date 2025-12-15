@@ -30,10 +30,10 @@ export const clubApi = {
     getMyApplications: (params?: any) => apiClient.get('/clubs/applications/my', { params }),
     getClubApplications: (clubId: string, params?: any) => apiClient.get(`/clubs/${clubId}/applications`, { params }),
     reviewApplication: (clubId: string, applicationId: string, payload: { action: 'approve' | 'reject'; reviewNotes?: string }) => apiClient.post(`/clubs/${clubId}/applications/${applicationId}/review`, payload),
-    configMembershipFee: (clubId: string, payload: { name: string; amount: number; description?: string; isRequired?: boolean }) => apiClient.patch(`/clubs/${clubId}/config-membership-fee`, payload),
+    configMembershipFee: (clubId: string, payload: { membershipFeeEnabled: boolean; membershipFeeAmount?: number }) => apiClient.patch(`/clubs/${clubId}/config-membership-fee`, payload),
     updateLeader: (clubId: string, payload: { newLeaderUserId: string }) => apiClient.patch(`/clubs/${clubId}/update-leader`, payload),
     updateMembershipRole: (clubId: string, membershipId: string, payload: { role: 'LEADER' | 'MEMBER' | 'STAFF' | 'TREASURER' }) => apiClient.patch(`/clubs/${clubId}/memberships/${membershipId}/role`, payload),
-    
+
     // Create club with Excel import (Admin only)
     createWithExcel: (data: CreateClubWithExcelPayload) => {
         const formData = new FormData();
@@ -42,14 +42,14 @@ export const clubApi = {
         if (data.slug) formData.append('slug', data.slug);
         if (data.logoUrl) formData.append('logoUrl', data.logoUrl);
         formData.append('excelFile', data.excelFile);
-        
+
         return apiClient.post('/clubs', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
         });
     },
-    
+
     update: (id: string | number, data: UpdateClubPayload) => apiClient.put(`/clubs/${id}`, data),
     delete: (id: string | number) => apiClient.delete(`/clubs/${id}`),
 
