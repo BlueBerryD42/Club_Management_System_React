@@ -12,10 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Calendar, MapPin, Users, Loader2, Link as LinkIcon } from "lucide-react";
 import { eventService, type Event as BackendEvent } from "@/services/event.service";
+import { clubApi } from "@/services/club.service";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { formatVND } from "@/lib/utils";
@@ -52,6 +55,7 @@ const eventFormSchema = z.object({
   endTime: z.string().optional(),
   capacity: z.number().min(1, "Số người tối đa phải lớn hơn 0").optional(),
   visibleFrom: z.string().min(1, "Vui lòng chọn thời gian hiển thị"),
+  staffIds: z.array(z.string()).optional(),
 }).refine((data) => {
   if (data.pricingType === "PAID") {
     return data.price !== undefined && data.price > 0;
@@ -110,6 +114,19 @@ export default function EventManagement() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priceDisplay, setPriceDisplay] = useState("");
+
+  // Fetch club members for staff selection
+  const { data: clubMembersData, isLoading: membersLoading } = useQuery({
+    queryKey: ['club-members', clubId],
+    queryFn: async () => {
+      if (!clubId) return { data: [] };
+      const response = await clubApi.getMembers(clubId);
+      return response.data;
+    },
+    enabled: !!clubId && showCreateDialog,
+  });
+
+  const clubMembers = clubMembersData?.data || [];
   
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -126,6 +143,7 @@ export default function EventManagement() {
       price: 0,
       format: "OFFLINE",
       visibleFrom: "",
+      staffIds: [],
     },
   });
 
@@ -183,6 +201,7 @@ export default function EventManagement() {
       price: 0,
       format: "OFFLINE",
       visibleFrom: "",
+      staffIds: [],
     });
     setPriceDisplay("");
     setEditingEvent(null);
@@ -209,6 +228,7 @@ export default function EventManagement() {
         location: data.format === "OFFLINE" ? data.location : undefined,
         onlineLink: data.format === "ONLINE" ? data.onlineLink : undefined,
         visibleFrom: data.visibleFrom ? new Date(data.visibleFrom).toISOString() : undefined,
+        staffIds: data.staffIds && data.staffIds.length > 0 ? data.staffIds : undefined,
       };
 
       await eventService.create(clubId, payload);
@@ -703,6 +723,91 @@ export default function EventManagement() {
                     )}
                   />
                 </div>
+                
+                {/* Staff Assignment Section */}
+                <FormField
+                  control={form.control}
+                  name="staffIds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="mb-4">
+                        <FormLabel className="text-base">Phân công nhân viên</FormLabel>
+                        <FormDescription>
+                          Chọn thành viên CLB để làm nhân viên quản lý sự kiện (có thể chọn nhiều)
+                        </FormDescription>
+                      </div>
+                      {membersLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : clubMembers.length === 0 ? (
+                        <div className="text-sm text-muted-foreground py-4">
+                          Không có thành viên nào trong CLB
+                        </div>
+                      ) : (
+                        <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto">
+                          <div className="space-y-3">
+                            {clubMembers
+                              .filter((member: any) => 
+                                member.status === "ACTIVE" && member.role !== "LEADER"
+                              )
+                              .map((member: any) => {
+                                const userId = member.userId || member.user?.id;
+                                const userName = member.user?.fullName || "Unknown";
+                                const userEmail = member.user?.email || "";
+                                const memberRole = member.role || "MEMBER";
+                                
+                                if (!userId) return null;
+                                
+                                return (
+                                  <div
+                                    key={userId}
+                                    className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 hover:bg-muted/50 transition-colors"
+                                  >
+                                    <Checkbox
+                                      checked={field.value?.includes(userId)}
+                                      onCheckedChange={(checked) => {
+                                        const currentValue = field.value || [];
+                                        return checked
+                                          ? field.onChange([...currentValue, userId])
+                                          : field.onChange(
+                                              currentValue.filter((value) => value !== userId)
+                                            );
+                                      }}
+                                    />
+                                    <label className="font-normal flex-1 cursor-pointer" onClick={() => {
+                                      const currentValue = field.value || [];
+                                      const isChecked = currentValue.includes(userId);
+                                      if (isChecked) {
+                                        field.onChange(currentValue.filter((value) => value !== userId));
+                                      } else {
+                                        field.onChange([...currentValue, userId]);
+                                      }
+                                    }}>
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <div className="font-medium">{userName}</div>
+                                          <div className="text-xs text-muted-foreground">{userEmail}</div>
+                                        </div>
+                                        {memberRole !== "MEMBER" && (
+                                          <Badge variant="outline" className="ml-2">
+                                            {memberRole === "LEADER" ? "Chủ nhiệm" : 
+                                             memberRole === "STAFF" ? "Nhân viên" : 
+                                             memberRole === "TREASURER" ? "Thủ quỹ" : memberRole}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </label>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </form>
             </Form>
             <DialogFooter>

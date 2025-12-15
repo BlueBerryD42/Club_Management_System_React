@@ -32,6 +32,14 @@ export interface Event {
   _count: {
     tickets: number;
   };
+  staff?: Array<{
+    userId: string;
+    user?: {
+      id: string;
+      email: string;
+      fullName: string | null;
+    };
+  }>;
 }
 
 export interface GetEventsParams {
@@ -53,6 +61,7 @@ export interface CreateEventPayload {
   format?: 'ONLINE' | 'OFFLINE';
   onlineLink?: string;
   visibleFrom?: string;
+  staffIds?: string[];
 }
 
 export interface UpdateEventPayload extends Partial<CreateEventPayload> {

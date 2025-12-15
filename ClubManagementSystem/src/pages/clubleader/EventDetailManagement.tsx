@@ -1018,6 +1018,24 @@ const EventDetailManagement = () => {
                     )}
                   </div>
                 </div>
+                <Separator />
+                <div>
+                  <div className="text-sm text-muted-foreground mb-2">Nhân viên sự kiện</div>
+                  {event.staff && event.staff.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {event.staff.map((staffItem: any) => {
+                        const staffEmail = staffItem.user?.email || staffItem.email || "N/A";
+                        return (
+                          <div key={staffItem.userId || staffItem.id || staffEmail} className="text-sm text-foreground">
+                            {staffEmail}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Chưa có nhân viên được phân công</div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
