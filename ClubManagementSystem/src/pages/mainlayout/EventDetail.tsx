@@ -24,12 +24,18 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
 const categoryColors: Record<string, string> = {
-  "PUBLIC": "bg-white text-primary border-primary/20",
-  "INTERNAL": "bg-white text-accent border-accent/20",
-  "FREE": "bg-white text-success border-success/20",
-  "PAID": "bg-white text-warning border-warning/20",
-  "ONLINE": "bg-white text-blue-600 border-blue-600/20",
-  "OFFLINE": "bg-white text-gray-600 border-gray-600/20",
+  PUBLIC:
+    "bg-white text-primary border-primary/20 hover:bg-white hover:text-primary cursor-default",
+  INTERNAL:
+    "bg-white text-accent border-accent/20 hover:bg-white hover:text-accent cursor-default",
+  FREE:
+    "bg-white text-success border-success/20 hover:bg-white hover:text-success cursor-default",
+  PAID:
+    "bg-white text-warning border-warning/20 hover:bg-white hover:text-warning cursor-default",
+  ONLINE:
+    "bg-white text-blue-600 border-blue-600/20 hover:bg-white hover:text-blue-600 cursor-default",
+  OFFLINE:
+    "bg-white text-gray-600 border-gray-600/20 hover:bg-white hover:text-gray-600 cursor-default",
 };
 
 const EventDetail = () => {
@@ -75,8 +81,12 @@ const EventDetail = () => {
     if (!user) return;
     try {
       const response = await ticketService.getMyTickets(eventId);
-      const hasTicket = response.data.tickets && response.data.tickets.length > 0;
-      setHasRegistered(hasTicket);
+      const tickets = response.data.tickets || [];
+      // Chỉ tính là đã đăng ký nếu có vé còn hiệu lực (không bị huỷ / hết hạn / thất bại)
+      const activeTickets = tickets.filter((t: any) =>
+        ["PAID", "RESERVED", "USED"].includes(t.status)
+      );
+      setHasRegistered(activeTickets.length > 0);
     } catch (error: any) {
       // If error, assume not registered
       console.error("Error checking registration:", error);
@@ -118,11 +128,35 @@ const EventDetail = () => {
 
     try {
       setRegistering(true);
-      await eventService.register(event.id);
-      toast({
-        title: "Thành công",
-        description: "Đăng ký sự kiện thành công!",
-      });
+      const response = await eventService.register(event.id);
+
+      // FREE event: registered immediately
+      if (event.pricingType === "FREE") {
+        toast({
+          title: "Thành công",
+          description: "Đăng ký sự kiện thành công!",
+        });
+      } else {
+        // PAID event: redirect to PayOS payment link
+        const paymentLink = response?.data?.paymentLink;
+
+        if (paymentLink) {
+          toast({
+            title: "Chuyển đến trang thanh toán",
+            description: "Vui lòng hoàn tất thanh toán trên PayOS để xác nhận đăng ký.",
+          });
+          // Open PayOS payment page in a new tab
+          window.open(paymentLink, "_blank", "noopener,noreferrer");
+        } else {
+          // Fallback if no paymentLink returned
+          toast({
+            title: "Lỗi",
+            description: "Không lấy được link thanh toán. Vui lòng thử lại sau.",
+            variant: "destructive",
+          });
+        }
+      }
+
       // Refresh event data to update attendee count
       await fetchEvent();
       // Check registration status again
@@ -348,19 +382,24 @@ const EventDetail = () => {
               <CardContent className="p-6">
                 <div className="space-y-4">
                   <div>
-                    <div className="text-sm text-muted-foreground mb-2">Trạng thái</div>
+                    <div className="text-sm text-muted-foreground mb-2">Trạng thái sự kiện</div>
                     {isPast ? (
                       <Badge variant="outline" className="w-full justify-center">
                         <XCircle className="h-4 w-4 mr-2" />
                         Đã kết thúc
                       </Badge>
+                    ) : !event.isActive ? (
+                      <Badge variant="outline" className="w-full justify-center">
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Đã tắt
+                      </Badge>
                     ) : isHappening ? (
-                      <Badge className="bg-primary/20 text-primary border-primary/30 w-full justify-center hover:bg-primary/20">
+                      <Badge className="bg-primary/20 text-primary border-primary/30 w-full justify-center">
                         <Clock className="h-4 w-4 mr-2" />
                         Sự kiện đang diễn ra
                       </Badge>
                     ) : registrationOpen ? (
-                      <Badge className="bg-success/20 text-success border-success/30 w-full justify-center hover:bg-success/20">
+                      <Badge className="bg-success/20 text-success border-success/30 w-full justify-center">
                         <CheckCircle2 className="h-4 w-4 mr-2" />
                         Đang mở đăng ký
                       </Badge>

@@ -61,6 +61,23 @@ export const adminService = {
     },
 
     /**
+     * Update user information (Admin only)
+     * Note: This endpoint may need to be created in the backend
+     */
+    updateUser: async (id: string, data: { fullName?: string; email?: string; phone?: string; studentCode?: string }) => {
+        try {
+            const response = await apiClient.patch(`/admin/users/${id}`, data);
+            return response.data;
+        } catch (error: any) {
+            console.error('Error updating user:', error);
+            console.error('Request URL:', `/admin/users/${id}`);
+            console.error('Request data:', data);
+            console.error('Error response:', error?.response?.data);
+            throw error;
+        }
+    },
+
+    /**
      * Lock/Unlock a club
      */
     toggleClubStatus: async (id: number | string, status: 'active' | 'inactive') => {

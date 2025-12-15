@@ -7,6 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, MapPin, Users, Search, Loader2, Globe, Link as LinkIcon, Filter } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { eventService, type Event } from "@/services/event.service";
 import { ticketService } from "@/services/ticket.service";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +37,7 @@ const Events = () => {
   const [registeredEventIds, setRegisteredEventIds] = useState<Set<string>>(new Set());
   const [pricingFilter, setPricingFilter] = useState<string>("all");
   const [formatFilter, setFormatFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const navigate = useNavigate();
   const { toast } = useToast();
   const user = useAppSelector((s) => s.auth.user);
@@ -37,7 +46,16 @@ const Events = () => {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        const response = await eventService.getAll({ type: "PUBLIC" });
+        // Build query params - don't pass type if "all" to let backend return both PUBLIC and INTERNAL (if user is member)
+        const params: any = {};
+        if (typeFilter !== "all") {
+          params.type = typeFilter;
+        }
+        if (pricingFilter !== "all") {
+          params.pricingType = pricingFilter;
+        }
+        
+        const response = await eventService.getAll(params);
         setEvents(response.data || []);
         
         // Check registration status for all events if user is logged in
@@ -57,14 +75,18 @@ const Events = () => {
     };
 
     fetchEvents();
-  }, [toast, user]);
+  }, [toast, user, typeFilter, pricingFilter]);
 
   const checkRegistrations = async () => {
     if (!user) return;
     try {
       const response = await ticketService.getMyTickets();
       const tickets = response.data.tickets || [];
-      const registeredIds = new Set(tickets.map((ticket: any) => ticket.event.id));
+      // Chỉ tính là đã đăng ký nếu có vé còn hiệu lực (PAID / RESERVED / USED)
+      const activeTickets = tickets.filter((ticket: any) =>
+        ["PAID", "RESERVED", "USED"].includes(ticket.status)
+      );
+      const registeredIds = new Set(activeTickets.map((ticket: any) => ticket.event.id));
       setRegisteredEventIds(registeredIds);
     } catch (error: any) {
       console.error("Error checking registrations:", error);
@@ -72,11 +94,20 @@ const Events = () => {
     }
   };
 
-  // Filter events: only show events that are visible (now >= visibleFrom or visibleFrom is null)
+  // Filter events:
+  // - Only show events that are visible (now >= visibleFrom or visibleFrom is null)
+  // - Hide events that have already ended
   const visibleEvents = events.filter((event) => {
     const now = new Date();
     const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
+    const startTime = new Date(event.startTime);
+    const endTime = event.endTime ? new Date(event.endTime) : null;
     
+    // Hide if event has ended
+    if (endTime ? now > endTime : now > startTime) {
+      return false;
+    }
+
     // Show event if visibleFrom is null or if current time >= visibleFrom
     if (!visibleFrom) return true;
     return now >= visibleFrom;
@@ -178,49 +209,84 @@ const Events = () => {
                 />
               </div>
 
-              {/* Filters */}
-              <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">Lọc:</span>
-                </div>
-                
-                <Select value={pricingFilter} onValueChange={setPricingFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Giá vé" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="FREE">Miễn phí</SelectItem>
-                    <SelectItem value="PAID">Có phí</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={formatFilter} onValueChange={setFormatFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Hình thức" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="ONLINE">Trực tuyến</SelectItem>
-                    <SelectItem value="OFFLINE">Trực tiếp</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {(pricingFilter !== "all" || formatFilter !== "all") && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setPricingFilter("all");
-                      setFormatFilter("all");
-                    }}
-                    className="text-muted-foreground whitespace-nowrap"
-                  >
-                    Xóa bộ lọc
+              {/* Filters (compact dropdown) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    Bộ lọc
                   </Button>
-                )}
-              </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 space-y-2">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Chọn bộ lọc
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <div className="space-y-2 px-1">
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Loại sự kiện</span>
+                      <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Loại sự kiện" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả</SelectItem>
+                          <SelectItem value="PUBLIC">Công khai</SelectItem>
+                          <SelectItem value="INTERNAL">Nội bộ</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Giá vé</span>
+                      <Select value={pricingFilter} onValueChange={setPricingFilter}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Giá vé" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả</SelectItem>
+                          <SelectItem value="FREE">Miễn phí</SelectItem>
+                          <SelectItem value="PAID">Có phí</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground">Hình thức</span>
+                      <Select value={formatFilter} onValueChange={setFormatFilter}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Hình thức" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tất cả</SelectItem>
+                          <SelectItem value="ONLINE">Trực tuyến</SelectItem>
+                          <SelectItem value="OFFLINE">Trực tiếp</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {(typeFilter !== "all" || pricingFilter !== "all" || formatFilter !== "all") && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild className="p-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-center text-muted-foreground"
+                          onClick={() => {
+                            setTypeFilter("all");
+                            setPricingFilter("all");
+                            setFormatFilter("all");
+                          }}
+                        >
+                          Xóa bộ lọc
+                        </Button>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ import {
   Clock,
   Users,
   QrCode,
-  Plus
+  Link as LinkIcon,
+  Search
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -49,7 +50,7 @@ interface MyEvent {
 const MyEvents = () => {
   const user = useAppSelector((s) => s.auth.user);
   const loading = false;
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [registrations, setRegistrations] = useState<MyEvent[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -95,6 +96,11 @@ const MyEvents = () => {
       // Map tickets to MyEvent format
       const mappedRegistrations: MyEvent[] = tickets.map((ticket: Ticket) => {
         console.log("MyEvents - Mapping ticket:", ticket.id, "Event:", ticket.event?.title, "QRCode:", ticket.qrCode);
+        const isOnline = ticket.event.format === 'ONLINE';
+        const displayLocation = isOnline
+          ? (ticket.onlineLink || ticket.event.location)
+          : ticket.event.location;
+
         return {
           id: ticket.id,
           event_id: ticket.event.id,
@@ -107,7 +113,7 @@ const MyEvents = () => {
             id: ticket.event.id,
             title: ticket.event.title,
             description: ticket.event.description,
-            location: ticket.event.location,
+            location: displayLocation,
             start_time: ticket.event.startTime,
             end_time: ticket.event.endTime,
             image_url: null, // Backend doesn't return image_url yet
@@ -181,9 +187,16 @@ const MyEvents = () => {
     const startDate = new Date(event.start_time);
     const endDate = event.end_time ? new Date(event.end_time) : startDate;
     const isPastEvent = now > endDate;
+    const isOngoing = now >= startDate && now <= endDate;
+    const isUpcoming = now < startDate;
+    const isOnlineEvent = registration.event_format === 'ONLINE';
+    const isOnlineUrl = isOnlineEvent && !!event.location && /^https?:\/\//.test(event.location);
 
     return (
-      <Card className="hover:shadow-md transition-shadow">
+      <Card
+        className="hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => navigate(`/events/${event.id}`)}
+      >
         <CardContent className="p-0">
           <div className="flex flex-col md:flex-row">
             {/* Image */}
@@ -225,8 +238,28 @@ const MyEvents = () => {
                     </div>
                     {event.location && (
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        <span>{event.location}</span>
+                        {isOnlineEvent ? (
+                          <>
+                            <LinkIcon className="h-4 w-4" />
+                            {isOnlineUrl ? (
+                              <a 
+                                href={event.location} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline break-all"
+                              >
+                                {event.location}
+                              </a>
+                            ) : (
+                              <span className="break-all">{event.location}</span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <MapPin className="h-4 w-4" />
+                            <span>{event.location}</span>
+                          </>
+                        )}
                       </div>
                     )}
                     {event.max_attendees && (
@@ -235,6 +268,17 @@ const MyEvents = () => {
                         <span>{event.current_attendees || 0}/{event.max_attendees} người tham gia</span>
                       </div>
                     )}
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        Trạng thái:{" "}
+                        {isPastEvent
+                          ? "Đã kết thúc"
+                          : isOngoing
+                            ? "Đang diễn ra"
+                            : "Sắp diễn ra"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -246,7 +290,8 @@ const MyEvents = () => {
                           size="sm" 
                           variant="outline"
                           className="whitespace-nowrap"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setSelectedQRCode(registration.qrCode!);
                             setSelectedEventTitle(registration.events.title);
                           }}
@@ -276,7 +321,7 @@ const MyEvents = () => {
           </div>
           <Button asChild>
             <Link to="/events">
-              <Plus className="h-4 w-4 mr-2" />
+              <Search className="h-4 w-4 mr-2" />
               Tìm sự kiện
             </Link>
           </Button>
