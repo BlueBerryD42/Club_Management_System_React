@@ -2,49 +2,9 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Users, Star } from "lucide-react";
-
-const featuredClubs = [
-  {
-    id: 1,
-    name: "CLB Tin học",
-    category: "Học thuật",
-    members: 156,
-    description: "Nơi hội tụ đam mê công nghệ, lập trình và phát triển kỹ năng IT cho sinh viên.",
-    image: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop",
-    isRecruiting: true,
-    rating: 4.8,
-  },
-  {
-    id: 2,
-    name: "CLB Nhiếp ảnh",
-    category: "Nghệ thuật",
-    members: 89,
-    description: "Khám phá nghệ thuật nhiếp ảnh, ghi lại những khoảnh khắc đẹp trong cuộc sống.",
-    image: "https://images.unsplash.com/photo-1452780212940-6f5c0d14d848?w=400&h=300&fit=crop",
-    isRecruiting: true,
-    rating: 4.9,
-  },
-  {
-    id: 3,
-    name: "CLB Tình nguyện",
-    category: "Xã hội",
-    members: 234,
-    description: "Lan tỏa yêu thương, kết nối cộng đồng qua các hoạt động tình nguyện ý nghĩa.",
-    image: "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=400&h=300&fit=crop",
-    isRecruiting: false,
-    rating: 4.7,
-  },
-  {
-    id: 4,
-    name: "CLB Khởi nghiệp",
-    category: "Kinh doanh",
-    members: 112,
-    description: "Ươm mầm ý tưởng kinh doanh, phát triển tư duy khởi nghiệp cho sinh viên.",
-    image: "https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=400&h=300&fit=crop",
-    isRecruiting: true,
-    rating: 4.6,
-  },
-];
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { clubApi } from "@/services/club.service";
 
 const categoryColors: Record<string, string> = {
   "Học thuật": "bg-primary/10 text-primary",
@@ -54,6 +14,29 @@ const categoryColors: Record<string, string> = {
 };
 
 export function ClubsPreview() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["featured-clubs"],
+    queryFn: async () => {
+      const res = await clubApi.getAll({ page: 1, limit: 8, isActive: true });
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+
+  const clubs = (data?.data || []).map((c: any) => ({
+    id: c.slug || c.id,
+    name: c.name,
+    category: c.description?.includes('học') ? 'Học thuật' :
+              c.description?.includes('nghệ thuật') ? 'Nghệ thuật' :
+              c.description?.includes('tình nguyện') ? 'Xã hội' :
+              c.description?.includes('kinh doanh') ? 'Kinh doanh' : 'Khác',
+    members: c._count?.memberships || 0,
+    description: c.description || '',
+    image: c.logoUrl || "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop",
+    isRecruiting: c.status === 'ACTIVE',
+    rating: 4.8,
+  }));
+
   return (
     <section className="py-20">
       <div className="container">
@@ -75,7 +58,22 @@ export function ClubsPreview() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredClubs.map((club, index) => (
+          {isLoading && (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={`skeleton-${i}`} className="rounded-2xl bg-card border border-border/50 overflow-hidden shadow-sm">
+                <Skeleton className="h-48 w-full" />
+                <div className="p-5 space-y-3">
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+          {!isLoading && clubs.map((club, index) => (
             <Link
               key={club.id}
               to={`/clubs/${club.id}`}

@@ -24,7 +24,6 @@ interface JoinRequestWithProfile {
     full_name: string;
     email: string;
     student_id: string | null;
-    faculty: string | null;
   };
 }
 
@@ -58,7 +57,6 @@ export default function JoinRequests() {
         full_name: a.user?.fullName || a.user?.email,
         email: a.user?.email,
         student_id: a.user?.studentCode || null,
-        faculty: a.user?.faculty || null,
       },
     }));
     setRequests(list);
@@ -146,7 +144,6 @@ export default function JoinRequests() {
                   <TableHead>Họ tên</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>MSSV</TableHead>
-                  <TableHead>Khoa</TableHead>
                   <TableHead>Ngày gửi</TableHead>
                   <TableHead>Trạng thái</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
@@ -155,7 +152,7 @@ export default function JoinRequests() {
               <TableBody>
                 {filteredRequests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       Không có đơn nào
                     </TableCell>
                   </TableRow>
@@ -165,7 +162,6 @@ export default function JoinRequests() {
                       <TableCell className="font-medium">{request.profile?.full_name}</TableCell>
                       <TableCell>{request.profile?.email}</TableCell>
                       <TableCell>{request.profile?.student_id || "-"}</TableCell>
-                      <TableCell>{request.profile?.faculty || "-"}</TableCell>
                       <TableCell>{new Date(request.created_at).toLocaleDateString("vi-VN")}</TableCell>
                       <TableCell>{getStatusBadge(request.status)}</TableCell>
                       <TableCell className="text-right">
@@ -213,10 +209,6 @@ export default function JoinRequests() {
                   <div>
                     <p className="text-sm text-muted-foreground">MSSV</p>
                     <p className="font-medium">{selectedRequest.profile?.student_id || "-"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Khoa</p>
-                    <p className="font-medium">{selectedRequest.profile?.faculty || "-"}</p>
                   </div>
                 </div>
                 {selectedRequest.message && (
