@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Users, Calendar, FileText, LogIn, UserPlus, Home, Building2, User, LogOut, CreditCard, LayoutDashboard, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,9 @@ const navLinks = [
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -34,13 +37,39 @@ export function Header() {
   const profile = user ? { full_name: user.fullName || user.email || "Người dùng", avatar_url: user.avatarUrl } : undefined;
   const leaderClubs = (user?.memberships || []).filter(m => m.role === 'LEADER' && m.status === 'ACTIVE');
 
+  // Scroll detection
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY < 10) {
+        // Always show header at the top
+        setIsVisible(true);
+      } else if (currentScrollY > lastScrollY) {
+        // Scrolling down - hide header
+        setIsVisible(false);
+      } else {
+        // Scrolling up - show header
+        setIsVisible(true);
+      }
+      
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
   const handleSignOut = async () => {
     dispatch(logout());
     navigate("/");
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-card/95 backdrop-blur-lg supports-[backdrop-filter]:bg-card/80">
+    <header className={cn(
+      "sticky top-0 z-50 w-full border-b border-border/50 bg-card/95 backdrop-blur-lg supports-[backdrop-filter]:bg-card/80 transition-transform duration-300",
+      isVisible ? "translate-y-0" : "-translate-y-full"
+    )}>
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 font-bold text-xl">

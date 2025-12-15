@@ -137,7 +137,7 @@ const Clubs = () => {
   }, [searchQuery]);
 
   // Fetch clubs from backend API
-  const { data: clubsData, isLoading } = useQuery({
+  const { data: clubsData, isLoading, isFetching } = useQuery({
     queryKey: ['public-clubs', debouncedSearch],
     queryFn: async () => {
       const response = await clubApi.getAll({ search: debouncedSearch || undefined });
@@ -252,15 +252,15 @@ const Clubs = () => {
             </div>
           </div>
 
-          {/* Loading State */}
-          {isLoading && (
+          {/* Loading State: show only when no data yet */}
+          {isLoading && !clubsData && (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )}
 
           {/* Clubs Grid/List */}
-          {!isLoading && viewMode === "grid" ? (
+          {!isLoading && (clubsData || allClubs.length > 0) && viewMode === "grid" ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredClubs.map((club: any) => (
                 <Link
@@ -309,7 +309,7 @@ const Clubs = () => {
                 </Link>
               ))}
             </div>
-          ) : (
+          ) : !isLoading && (clubsData || allClubs.length > 0) ? (
             <div className="space-y-4">
               {filteredClubs.map((club: any) => (
                 <Link
@@ -357,11 +357,19 @@ const Clubs = () => {
                 </Link>
               ))}
             </div>
-          )}
+          ) : null}
 
-          {!isLoading && filteredClubs.length === 0 && (
+          {!isLoading && (clubsData || allClubs.length > 0) && filteredClubs.length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">Không tìm thấy câu lạc bộ nào phù hợp.</p>
+            </div>
+          )}
+
+          {/* Lightweight inline fetch indicator for refetch (search debounce) */}
+          {isFetching && !isLoading && (
+            <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Đang cập nhật danh sách...
             </div>
           )}
         </div>
