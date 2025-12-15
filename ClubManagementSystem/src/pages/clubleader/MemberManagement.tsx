@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -28,8 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Search, ArrowLeft, UserCog, UserMinus } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { clubApi } from "@/services/club.service";
+import { Search, ArrowLeft, UserCog, UserMinus, Crown } from "lucide-react";
 
 interface MemberWithProfile {
   id: string;
@@ -48,64 +51,106 @@ interface MemberWithProfile {
 export default function MemberManagement() {
   const { clubId } = useParams();
   const { toast } = useToast();
-  const [members, setMembers] = useState<MemberWithProfile[]>([]);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMember, setSelectedMember] = useState<MemberWithProfile | null>(null);
   const [showRoleDialog, setShowRoleDialog] = useState(false);
+  const [showTransferLeaderDialog, setShowTransferLeaderDialog] = useState(false);
   const [newRole, setNewRole] = useState("member");
 
-  useEffect(() => {
-    // Mock data
-    setMembers([
-      {
-        id: "1",
-        user_id: "user1",
-        role: "leader",
-        status: "active",
-        joined_at: new Date(Date.now() - 86400000 * 365).toISOString(),
-        profile: {
-          full_name: "Nguyễn Văn A",
-          email: "a@student.edu.vn",
-          student_id: "20210001",
-          faculty: "Công nghệ thông tin",
-        },
+  // Fetch members from API
+  const { data: membersData, isLoading } = useQuery({
+    queryKey: ['club-members', clubId],
+    queryFn: async () => {
+      const response = await clubApi.getMembers(clubId!, { limit: 100 });
+      return response.data;
+    },
+    enabled: !!clubId,
+  });
+
+  // Extract members from response
+  const members: MemberWithProfile[] = Array.isArray(membersData?.data)
+    ? membersData.data.map((m: any) => ({
+      id: m.id,
+      user_id: m.userId,
+      role: m.role,
+      status: m.status,
+      joined_at: m.createdAt || m.joinedAt || new Date().toISOString(),
+      profile: {
+        full_name: m.user?.fullName || m.user?.full_name || 'N/A',
+        email: m.user?.email || 'N/A',
+        student_id: m.user?.studentCode || m.user?.student_code || null,
+        faculty: null,
       },
-      {
-        id: "2",
-        user_id: "user2",
-        role: "member",
-        status: "active",
-        joined_at: new Date(Date.now() - 86400000 * 30).toISOString(),
-        profile: {
-          full_name: "Trần Thị B",
-          email: "b@student.edu.vn",
-          student_id: "20210002",
-          faculty: "Công nghệ thông tin",
-        },
-      },
-      {
-        id: "3",
-        user_id: "user3",
-        role: "treasurer",
-        status: "active",
-        joined_at: new Date(Date.now() - 86400000 * 60).toISOString(),
-        profile: {
-          full_name: "Lê Văn C",
-          email: "c@student.edu.vn",
-          student_id: "20210003",
-          faculty: "Kinh tế",
-        },
-      },
-    ]);
-  }, [clubId]);
+    }))
+    : [];
+
+  // Mutation for updating role
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ membershipId, role }: { membershipId: string; role: string }) => {
+      return await clubApi.updateMembershipRole(clubId!, membershipId, { role: role as any });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['club-members', clubId] });
+      toast({ title: "Thành công", description: "Đã cập nhật vai trò thành viên" });
+      setShowRoleDialog(false);
+      setSelectedMember(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể cập nhật vai trò",
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Mutation for transferring leadership
+  const transferLeaderMutation = useMutation({
+    mutationFn: async (newLeaderUserId: string) => {
+      return await clubApi.updateLeader(clubId!, { newLeaderUserId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['club-members', clubId] });
+      toast({
+        title: "Thành công",
+        description: "Đã chuyển quyền trưởng CLB. Bạn hiện là thành viên.",
+        duration: 5000,
+      });
+      setShowTransferLeaderDialog(false);
+      setSelectedMember(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể chuyển quyền trưởng CLB",
+        variant: "destructive"
+      });
+    },
+  });
 
   const handleChangeRole = async () => {
     if (!selectedMember) return;
 
-    // TODO: Kết nối API
-    toast({ title: "Thành công", description: "Đã cập nhật vai trò thành viên" });
-    setShowRoleDialog(false);
-    setSelectedMember(null);
+    const upperRole = newRole.toUpperCase();
+
+    // Nếu chọn LEADER, mở dialog xác nhận chuyển quyền
+    if (upperRole === "LEADER") {
+      setShowRoleDialog(false);
+      setShowTransferLeaderDialog(true);
+      return;
+    }
+
+    // Cập nhật role thông thường (MEMBER, STAFF, TREASURER)
+    updateRoleMutation.mutate({
+      membershipId: selectedMember.id,
+      role: upperRole,
+    });
+  };
+
+  const handleTransferLeader = () => {
+    if (!selectedMember) return;
+    transferLeaderMutation.mutate(selectedMember.user_id);
   };
 
   const handleRemoveMember = async (_memberId: string) => {
@@ -122,30 +167,33 @@ export default function MemberManagement() {
   });
 
   const getRoleBadge = (role: string) => {
-    switch (role) {
-      case "leader":
-        return <Badge className="bg-primary/20 text-primary">Leader</Badge>;
-      case "treasurer":
-        return <Badge className="bg-warning/20 text-warning">Thủ quỹ</Badge>;
-      case "staff":
-        return <Badge className="bg-secondary text-secondary-foreground">Staff</Badge>;
+    const upperRole = role.toUpperCase();
+    switch (upperRole) {
+      case "LEADER":
+        return <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30">Trưởng CLB</Badge>;
+      case "TREASURER":
+        return <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30">Thủ quỹ</Badge>;
+      case "STAFF":
+        return <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/30">Ban quản lý</Badge>;
       default:
-        return <Badge variant="outline">Thành viên</Badge>;
+        return <Badge className="bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-500/30">Thành viên</Badge>;
     }
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return <Badge className="bg-success/20 text-success">Hoạt động</Badge>;
-      case "inactive":
-        return <Badge className="bg-muted text-muted-foreground">Không hoạt động</Badge>;
-      case "pending":
-        return <Badge className="bg-warning/20 text-warning">Chờ duyệt</Badge>;
-      case "alumni":
-        return <Badge className="bg-primary/20 text-primary">Cựu thành viên</Badge>;
+    const upperStatus = status.toUpperCase();
+    switch (upperStatus) {
+      case "ACTIVE":
+        return <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30">Hoạt động</Badge>;
+      case "INACTIVE":
+        return <Badge className="bg-gray-500/20 text-gray-700 dark:text-gray-300 border-gray-500/30">Không hoạt động</Badge>;
+      case "PENDING":
+      case "PENDING_PAYMENT":
+        return <Badge className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30">Chờ duyệt</Badge>;
+      case "ALUMNI":
+        return <Badge className="bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-indigo-500/30">Cựu thành viên</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge className="bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-500/30">{status}</Badge>;
     }
   };
 
@@ -179,66 +227,74 @@ export default function MemberManagement() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Họ tên</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>MSSV</TableHead>
-                  <TableHead>Vai trò</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Ngày tham gia</TableHead>
-                  <TableHead className="text-right">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMembers.length === 0 ? (
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Chưa có thành viên nào
-                    </TableCell>
+                    <TableHead>Họ tên</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>MSSV</TableHead>
+                    <TableHead>Vai trò</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Ngày tham gia</TableHead>
+                    <TableHead className="text-right">Thao tác</TableHead>
                   </TableRow>
-                ) : (
-                  filteredMembers.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell className="font-medium">{member.profile?.full_name}</TableCell>
-                      <TableCell>{member.profile?.email}</TableCell>
-                      <TableCell>{member.profile?.student_id || "-"}</TableCell>
-                      <TableCell>{getRoleBadge(member.role)}</TableCell>
-                      <TableCell>{getStatusBadge(member.status)}</TableCell>
-                      <TableCell>
-                        {new Date(member.joined_at).toLocaleDateString("vi-VN")}
+                </TableHeader>
+                <TableBody>
+                  {filteredMembers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        Chưa có thành viên nào
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setSelectedMember(member);
-                              setNewRole(member.role);
-                              setShowRoleDialog(true);
-                            }}
-                          >
-                            <UserCog className="h-4 w-4" />
-                          </Button>
-                          {member.role !== "leader" && (
+                    </TableRow>
+                  ) : (
+                    filteredMembers.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell className="font-medium">{member.profile?.full_name}</TableCell>
+                        <TableCell>{member.profile?.email}</TableCell>
+                        <TableCell>{member.profile?.student_id || "-"}</TableCell>
+                        <TableCell>{getRoleBadge(member.role)}</TableCell>
+                        <TableCell>{getStatusBadge(member.status)}</TableCell>
+                        <TableCell>
+                          {new Date(member.joined_at).toLocaleDateString("vi-VN")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-destructive"
-                              onClick={() => handleRemoveMember(member.id)}
+                              onClick={() => {
+                                setSelectedMember(member);
+                                setNewRole(member.role);
+                                setShowRoleDialog(true);
+                              }}
                             >
-                              <UserMinus className="h-4 w-4" />
+                              <UserCog className="h-4 w-4" />
                             </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                            {member.role.toUpperCase() !== "LEADER" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive"
+                                onClick={() => handleRemoveMember(member.id)}
+                              >
+                                <UserMinus className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -269,6 +325,50 @@ export default function MemberManagement() {
                 Hủy
               </Button>
               <Button onClick={handleChangeRole}>Lưu thay đổi</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transfer Leadership Dialog */}
+        <Dialog open={showTransferLeaderDialog} onOpenChange={setShowTransferLeaderDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-amber-500" />
+                Chuyển quyền Trưởng CLB
+              </DialogTitle>
+              <DialogDescription className="space-y-2">
+                <p>
+                  Bạn đang chuyển quyền trưởng CLB cho{" "}
+                  <strong>{selectedMember?.profile?.full_name}</strong>
+                </p>
+                <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-200 text-sm">
+                  <p className="font-semibold mb-1">⚠️ Lưu ý:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Sau khi chuyển quyền, bạn sẽ trở thành thành viên thông thường</li>
+                    <li>Bạn sẽ không thể hoàn tác hành động này</li>
+                    <li>Chỉ trưởng CLB mới có thể chuyển quyền cho người khác</li>
+                  </ul>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowTransferLeaderDialog(false);
+                  setSelectedMember(null);
+                }}
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleTransferLeader}
+                disabled={transferLeaderMutation.isPending}
+                className="bg-amber-500 hover:bg-amber-600"
+              >
+                {transferLeaderMutation.isPending ? "Đang xử lý..." : "Xác nhận chuyển quyền"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

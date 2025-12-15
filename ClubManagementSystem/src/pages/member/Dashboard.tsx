@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Building2, Calendar, CreditCard, Clock, Bell, Users } from "lucide-react";
-import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,67 +7,106 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppSelector } from "@/store/hooks";
-// import axios from "axios"; // Use axios for mock API
-const userSelector = (s: any) => s.auth.user;
+import { clubApi } from "@/services/club.service";
 
-// derive auth state
-const useAuthLike = () => {
-  const user = useAppSelector(userSelector);
+interface UserClub {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  logoUrl?: string;
+  memberCount?: number;
+  role?: string;
+  status?: string;
+}
+
+interface ClubMembership {
+  clubId: string;
+  role: string;
+  status: string;
+}
+
+const getRoleLabel = (role: string): string => {
+  switch (role) {
+    case 'LEADER':
+      return 'Chủ nhiệm';
+    case 'TREASURER':
+      return 'Thủ quỹ';
+    case 'STAFF':
+      return 'Nhân viên';
+    default:
+      return 'Thành viên';
+  }
+};
+
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "approved":
+      return <Badge className="bg-success/20 text-success border-success/30">Đã duyệt</Badge>;
+    case "pending":
+      return <Badge className="bg-warning/20 text-warning border-warning/30">Chờ duyệt</Badge>;
+    case "rejected":
+      return <Badge className="bg-destructive/20 text-destructive border-destructive/30">Từ chối</Badge>;
+    case "ACTIVE":
+      return <Badge className="bg-success/20 text-success border-success/30">Hoạt động</Badge>;
+    case "PENDING_PAYMENT":
+      return <Badge className="bg-warning/20 text-warning border-warning/30">Chờ thanh toán</Badge>;
+    default:
+      return null;
+  }
+};
+
+const Dashboard = () => {
+  const user = useAppSelector((s: Record<string, any>) => s.auth.user);
+
+  // Fetch user's clubs
+  const { data: clubsData = [], isLoading: clubsLoading } = useQuery({
+    queryKey: ['user-clubs', user?.id],
+    enabled: !!user && !!user.memberships && user.memberships.length > 0,
+    queryFn: async () => {
+      if (!user?.memberships || user.memberships.length === 0) return [];
+
+      try {
+        // Fetch details for each club the user is a member of
+        const clubDetails: UserClub[] = [];
+
+        for (const membership of user.memberships as ClubMembership[]) {
+          try {
+            const res = await clubApi.getById(membership.clubId);
+            const clubData = Array.isArray(res) ? res[0] : (res.data?.club || res.data);
+
+            clubDetails.push({
+              id: clubData.id,
+              name: clubData.name,
+              slug: clubData.slug,
+              description: clubData.description,
+              logoUrl: clubData.logoUrl,
+              role: membership.role,
+              status: membership.status
+            });
+          } catch (error) {
+            console.error(`Error fetching club ${membership.clubId}:`, error);
+          }
+        }
+
+        return clubDetails;
+      } catch (error) {
+        console.error('Error fetching clubs:', error);
+        return [];
+      }
+    }
+  });
+
+  // Computed stats based on clubsData
+  const stats = {
+    myClubs: clubsLoading ? 0 : clubsData.length,
+    upcomingEvents: 0,
+    pendingFees: 0,
+    pendingRequests: 0,
+  };
+
   const loading = false;
   const profile = user ? { full_name: user.full_name || user.name || user.email } : undefined;
-  return { user, loading, profile };
-};
-const Dashboard = () => {
-  const { user, loading, profile } = useAuthLike();
-  const [stats, setStats] = useState({ myClubs: 0, upcomingEvents: 0, pendingFees: 0, pendingRequests: 0 });
-  const [activities, setActivities] = useState<Array<{ id: string; type: "event" | "club" | "fee" | "request"; title: string; description: string; date: string; status?: string }>>([]);
-  const [loadingData, setLoadingData] = useState(true);
-
-  // TODO: Khôi phục auth check khi kết nối API
-  // useEffect(() => {
-  //   if (!loading && !user) {
-  //     navigate("/login");
-  //   }
-  // }, [user, loading, navigate]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    if (!user) return;
-    setLoadingData(true);
-    // Simulate API call delay
-    setTimeout(() => {
-      // Mock stats
-      setStats({
-        myClubs: 2,
-        upcomingEvents: 1,
-        pendingFees: 1,
-        pendingRequests: 0,
-      });
-      // Mock activities
-      setActivities([
-        {
-          id: "1",
-          type: "event",
-          title: "Hội thảo AI",
-          description: "Đã đăng ký tham gia",
-          date: new Date().toISOString(),
-          status: "approved",
-        },
-        {
-          id: "2",
-          type: "request",
-          title: "CLB Công nghệ",
-          description: "Đơn xin gia nhập",
-          date: new Date().toISOString(),
-          status: "pending",
-        },
-      ]);
-      setLoadingData(false);
-    }, 800);
-  };
 
   if (loading) {
     return (
@@ -93,7 +130,7 @@ const Dashboard = () => {
       icon: Building2,
       color: "text-primary",
       bgColor: "bg-primary/10",
-      href: "/my-clubs",
+      href: "/member/my-clubs",
     },
     {
       title: "Sự kiện sắp tới",
@@ -101,7 +138,7 @@ const Dashboard = () => {
       icon: Calendar,
       color: "text-success",
       bgColor: "bg-success/10",
-      href: "/my-events",
+      href: "/member/my-events",
     },
     {
       title: "Phí cần đóng",
@@ -109,7 +146,7 @@ const Dashboard = () => {
       icon: CreditCard,
       color: "text-warning",
       bgColor: "bg-warning/10",
-      href: "/fees",
+      href: "/member/fees",
     },
     {
       title: "Đơn chờ duyệt",
@@ -121,18 +158,9 @@ const Dashboard = () => {
     },
   ];
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <Badge className="bg-success/20 text-success border-success/30">Đã duyệt</Badge>;
-      case "pending":
-        return <Badge className="bg-warning/20 text-warning border-warning/30">Chờ duyệt</Badge>;
-      case "rejected":
-        return <Badge className="bg-destructive/20 text-destructive border-destructive/30">Từ chối</Badge>;
-      default:
-        return null;
-    }
-  };
+  const isClubsLoading = clubsLoading;
+  const hasClubs = clubsData.length > 0;
+  const noClubsMessage = !isClubsLoading && !hasClubs;
 
   return (
     <Layout>
@@ -158,7 +186,7 @@ const Dashboard = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground mb-1">{stat.title}</p>
-                        <p className="text-3xl font-bold">{loadingData ? "-" : stat.value}</p>
+                        <p className="text-3xl font-bold">{isClubsLoading ? "-" : stat.value}</p>
                       </div>
                       <div className={`h-12 w-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
                         <Icon className={`h-6 w-6 ${stat.color}`} />
@@ -220,56 +248,75 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Recent Activity */}
-          <Card>
+          {/* My Clubs Section */}
+          <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Hoạt động gần đây
+                <Building2 className="h-5 w-5" />
+                CLB của tôi
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingData ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16" />
+              {isClubsLoading && (
+                <div className="space-y-3">
+                  {[1, 2].map((i) => (
+                    <Skeleton key={i} className="h-12" />
                   ))}
                 </div>
-              ) : activities.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Chưa có hoạt động nào</p>
+              )}
+
+              {noClubsMessage && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Building2 className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Bạn chưa gia nhập CLB nào</p>
+                  <Button variant="link" size="sm" asChild className="mt-2">
+                    <Link to="/clubs">Tìm CLB</Link>
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {activities.map((activity) => (
-                    <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                        activity.type === "event" ? "bg-success/20 text-success" :
-                        activity.type === "request" ? "bg-primary/20 text-primary" :
-                        "bg-warning/20 text-warning"
-                      }`}>
-                        {activity.type === "event" ? <Calendar className="h-4 w-4" /> :
-                         activity.type === "request" ? <Users className="h-4 w-4" /> :
-                         <CreditCard className="h-4 w-4" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{activity.title}</p>
-                        <p className="text-xs text-muted-foreground">{activity.description}</p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(activity.date), "dd/MM/yyyy", { locale: vi })}
-                          </span>
-                          {activity.status && getStatusBadge(activity.status)}
+              )}
+
+              {hasClubs && (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {clubsData.map((club) => (
+                    <Link
+                      key={club.id}
+                      to={`/clubs/${club.id}`}
+                      className="block p-3 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate group-hover:underline">{club.name}</p>
+                          {club.role && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {getRoleLabel(club.role)}
+                            </p>
+                          )}
                         </div>
+                        {club.status && getStatusBadge(club.status)}
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Activity */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Hoạt động gần đây
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-12 text-muted-foreground">
+              <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>Tính năng này sẽ sớm được cập nhật</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );

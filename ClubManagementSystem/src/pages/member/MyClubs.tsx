@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 // import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
@@ -9,9 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppSelector } from "@/store/hooks";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Building2, 
-  Calendar, 
+import { useQuery } from "@tanstack/react-query";
+import { clubApi } from "@/services/club.service";
+import {
+  Building2,
+  Calendar,
   Clock,
   CheckCircle2,
   XCircle,
@@ -50,14 +52,110 @@ interface JoinRequest {
   };
 }
 
+interface ClubMembership {
+  clubId: string;
+  role: string;
+  status: string;
+}
+
 const MyClubs = () => {
   const user = useAppSelector((s) => s.auth.user);
   const loading = false;
   // const navigate = useNavigate();
   const { toast } = useToast();
-  const [myClubs, setMyClubs] = useState<MyClub[]>([]);
-  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
+
+  // Fetch user's clubs based on memberships
+  const { data: myClubs = [], isLoading: clubsLoading } = useQuery<MyClub[]>({
+    queryKey: ['my-clubs', user?.id],
+    enabled: !!user && !!user.memberships && user.memberships.length > 0,
+    queryFn: async () => {
+      if (!user?.memberships || user.memberships.length === 0) return [];
+
+      try {
+        const clubDetails: MyClub[] = [];
+
+        for (const membership of user.memberships as ClubMembership[]) {
+          try {
+            const res = await clubApi.getById(membership.clubId);
+            console.log('Club API Response for', membership.clubId, ':', res);
+
+            // Extract club data from response - handle different response structures
+            let clubData;
+            if (Array.isArray(res)) {
+              clubData = res[0];
+            } else if (res.data) {
+              // Could be res.data.club or res.data or res.data.data
+              clubData = res.data.club || res.data.data || res.data;
+            } else {
+              clubData = res;
+            }
+
+            console.log('Extracted clubData:', clubData);
+
+            if (!clubData || !clubData.id || !clubData.name) {
+              console.error('Invalid club data structure:', clubData);
+              continue; // Skip this club if data is invalid
+            }
+
+            clubDetails.push({
+              id: membership.clubId,
+              club_id: clubData.id,
+              role: membership.role,
+              status: membership.status,
+              joined_at: new Date().toISOString(), // We don't have joinedAt from membership, using current date
+              clubs: {
+                id: clubData.id,
+                name: clubData.name,
+                category: clubData.category || 'Khác',
+                logo_url: clubData.logoUrl || clubData.logo_url || null,
+                description: clubData.description || null,
+              },
+            });
+          } catch (error) {
+            console.error(`Error fetching club ${membership.clubId}:`, error);
+          }
+        }
+
+        console.log('Final clubDetails:', clubDetails);
+        return clubDetails;
+      } catch (error) {
+        console.error('Error fetching clubs:', error);
+        return [];
+      }
+    }
+  });
+
+  // Fetch user's club applications
+  const { data: applicationsData = [], isLoading: applicationsLoading } = useQuery<JoinRequest[]>({
+    queryKey: ['my-applications', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      try {
+        const res = await clubApi.getMyApplications();
+        const applications = Array.isArray(res.data) ? res.data : res.data?.data || [];
+
+        return applications.map((app: any) => ({
+          id: app.id,
+          club_id: app.clubId,
+          status: app.status,
+          message: app.applicationData || null,
+          created_at: app.createdAt,
+          clubs: {
+            id: app.club?.id || app.clubId,
+            name: app.club?.name || 'Unknown Club',
+            category: app.club?.category || 'Khác',
+            logo_url: app.club?.logoUrl || null,
+          },
+        }));
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        return [];
+      }
+    }
+  });
+
+  // Use applicationsData directly instead of local state
+  const joinRequests = applicationsLoading ? [] : applicationsData;
 
   // TODO: Khôi phục auth check khi kết nối API
   // useEffect(() => {
@@ -66,57 +164,8 @@ const MyClubs = () => {
   //   }
   // }, [user, loading, navigate]);
 
-  // useEffect(() => {
-  //   if (user) {
-  //     fetchData();
-  //   }
-  // }, [user]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-  // Replace supabase API with mock data logic
-  const fetchData = async () => {
-    if (!user) return;
-    setLoadingData(true);
-    setTimeout(() => {
-      setMyClubs([
-        {
-          id: "1",
-          club_id: "club1",
-          role: "member",
-          status: "active",
-          joined_at: new Date(Date.now() - 86400000 * 30).toISOString(),
-          clubs: {
-            id: "club1",
-            name: "CLB Công nghệ",
-            category: "Kỹ thuật",
-            logo_url: null,
-            description: "Câu lạc bộ về công nghệ và kỹ thuật.",
-          },
-        },
-      ]);
-      setJoinRequests([
-        {
-          id: "r1",
-          club_id: "club2",
-          status: "pending",
-          message: "Mong muốn tham gia CLB!",
-          created_at: new Date().toISOString(),
-          clubs: {
-            id: "club2",
-            name: "CLB Văn nghệ",
-            category: "Nghệ thuật",
-            logo_url: null,
-          },
-        },
-      ]);
-      setLoadingData(false);
-    }, 800);
-  };
-
   const cancelRequest = async (requestId: string) => {
-    setJoinRequests(prev => prev.filter(r => r.id !== requestId));
+    // TODO: Call API to cancel the request
     toast({
       title: "Đã huỷ",
       description: "Đơn xin gia nhập đã được huỷ",
@@ -124,7 +173,7 @@ const MyClubs = () => {
   };
 
   const leaveClub = async (membershipId: string) => {
-    setMyClubs(prev => prev.filter(c => c.id !== membershipId));
+    // TODO: Call API to leave the club
     toast({
       title: "Đã rời",
       description: "Bạn đã rời khỏi câu lạc bộ",
@@ -192,7 +241,7 @@ const MyClubs = () => {
           </TabsList>
 
           <TabsContent value="clubs">
-            {loadingData ? (
+            {clubsLoading ? (
               <div className="grid gap-4">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-32" />
@@ -225,7 +274,7 @@ const MyClubs = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-semibold text-lg">{club.clubs.name}</h3>
-                            <Badge variant="secondary">{club.role === "leader" ? "Trưởng CLB" : "Thành viên"}</Badge>
+                            <Badge variant="secondary">{club.role === "LEADER" ? "Trưởng CLB" : "Thành viên"}</Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">{club.clubs.category}</p>
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -240,10 +289,10 @@ const MyClubs = () => {
                               <ArrowRight className="h-4 w-4 ml-1" />
                             </Link>
                           </Button>
-                          {club.role !== "leader" && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                          {club.role !== "LEADER" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="text-destructive hover:text-destructive"
                               onClick={() => leaveClub(club.id)}
                             >
@@ -290,9 +339,9 @@ const MyClubs = () => {
                             <p className="text-sm mt-2 italic">"{request.message}"</p>
                           )}
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-destructive hover:text-destructive"
                           onClick={() => cancelRequest(request.id)}
                         >
@@ -321,9 +370,8 @@ const MyClubs = () => {
                   <Card key={request.id} className="opacity-80">
                     <CardContent className="p-6">
                       <div className="flex items-center gap-6">
-                        <div className={`h-16 w-16 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          request.status === "approved" ? "bg-success/10" : "bg-destructive/10"
-                        }`}>
+                        <div className={`h-16 w-16 rounded-xl flex items-center justify-center flex-shrink-0 ${request.status === "approved" ? "bg-success/10" : "bg-destructive/10"
+                          }`}>
                           {request.status === "approved" ? (
                             <CheckCircle2 className="h-8 w-8 text-success" />
                           ) : (

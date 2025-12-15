@@ -8,19 +8,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { 
-  User, 
-  Mail, 
-  Phone, 
+import { useAppDispatch } from "@/store/hooks";
+import { updateUser } from "@/store/slices/authSlice";
+import { userApi } from "@/services/user.service";
+import {
+  User,
+  Mail,
+  Phone,
   Hash,
   Camera,
   Save,
@@ -32,26 +28,16 @@ import {
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
-const faculties = [
-  "Khoa Công nghệ thông tin",
-  "Khoa Kinh tế",
-  "Khoa Ngoại ngữ",
-  "Khoa Điện - Điện tử",
-  "Khoa Cơ khí",
-  "Khoa Xây dựng",
-  "Khoa Luật",
-  "Khoa Y dược",
-];
-
 const Profile = () => {
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
   const { user, isLoading, refetch } = useUserProfile();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
-    faculty: "",
     studentCode: "",
+    avatarUrl: "",
   });
   const [activities, setActivities] = useState<{
     id: string;
@@ -67,8 +53,8 @@ const Profile = () => {
       setFormData({
         fullName: user.fullName || "",
         phone: user.phone || "",
-        faculty: "",
         studentCode: user.studentCode || "",
+        avatarUrl: user.avatarUrl || "",
       });
     }
   }, [user]);
@@ -91,19 +77,31 @@ const Profile = () => {
     if (!user) return;
     setSaving(true);
     try {
-      // TODO: Call API to update profile
-      // await authApi.updateProfile({ ...formData });
-      
-      // Simulate profile update
+      // Call API to update profile
+      const response = await userApi.updateProfile({
+        fullName: formData.fullName,
+        phone: formData.phone,
+        studentCode: formData.studentCode,
+        avatarUrl: formData.avatarUrl,
+      });
+
+      // Update Redux state with new user data
+      if (response.data?.data) {
+        dispatch(updateUser(response.data.data));
+      }
+
+      // Refresh user profile from server
       await refetch();
+
       toast({
         title: "Thành công",
         description: "Thông tin cá nhân đã được cập nhật",
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Update profile error:', error);
       toast({
         title: "Lỗi",
-        description: "Cập nhật thất bại",
+        description: error.response?.data?.message || "Cập nhật thất bại",
         variant: "destructive",
       });
     } finally {
@@ -192,7 +190,7 @@ const Profile = () => {
                           <Input
                             id="fullName"
                             value={formData.fullName}
-                            onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                             className="pl-10"
                           />
                         </div>
@@ -204,7 +202,7 @@ const Profile = () => {
                           <Input
                             id="studentId"
                             value={formData.studentCode}
-                            onChange={(e) => setFormData({...formData, studentCode: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, studentCode: e.target.value })}
                             className="pl-10"
                           />
                         </div>
@@ -231,7 +229,7 @@ const Profile = () => {
                           <Input
                             id="phone"
                             value={formData.phone}
-                            onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                             className="pl-10"
                             placeholder="0123456789"
                           />
@@ -240,20 +238,18 @@ const Profile = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="faculty">Khoa/Viện</Label>
-                      <Select 
-                        value={formData.faculty} 
-                        onValueChange={(value) => setFormData({...formData, faculty: value})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn khoa/viện" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {faculties.map((faculty) => (
-                            <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="avatarUrl">Avatar URL</Label>
+                      <div className="relative">
+                        <Camera className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="avatarUrl"
+                          value={formData.avatarUrl}
+                          onChange={(e) => setFormData({ ...formData, avatarUrl: e.target.value })}
+                          className="pl-10"
+                          placeholder="https://example.com/avatar.png"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Dán URL ảnh đại diện của bạn</p>
                     </div>
 
                     <Button onClick={handleSave} disabled={saving} className="w-fit">
@@ -293,11 +289,10 @@ const Profile = () => {
                   <div className="space-y-4">
                     {activities.map((activity) => (
                       <div key={activity.id} className="flex items-center gap-4 p-4 rounded-lg border">
-                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                          activity.type === "event" ? "bg-success/20 text-success" :
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${activity.type === "event" ? "bg-success/20 text-success" :
                           activity.type === "club" ? "bg-primary/20 text-primary" :
-                          "bg-warning/20 text-warning"
-                        }`}>
+                            "bg-warning/20 text-warning"
+                          }`}>
                           {getActivityIcon(activity.type)}
                         </div>
                         <div className="flex-1 min-w-0">
