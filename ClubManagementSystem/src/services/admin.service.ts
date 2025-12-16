@@ -46,9 +46,10 @@ export const adminService = {
 
     /**
      * Get list of all users
+     * Uses /api/users/getallprofile endpoint which returns { users: [...], count: number }
      */
     getUsers: async () => {
-        const response = await apiClient.get('/admin/users');
+        const response = await apiClient.get('/users/getallprofile');
         return response.data;
     },
 

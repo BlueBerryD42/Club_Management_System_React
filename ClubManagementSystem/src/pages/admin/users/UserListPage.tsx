@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { userApi } from "@/services/user.service";
 import { adminService } from "@/services/admin.service";
 import { clubApi } from "@/services/club.service";
 import {
@@ -188,15 +187,37 @@ const UserListPage = () => {
     queryFn: async () => {
       try {
         const res = await adminService.getUsers();
+        
+        // /api/users/getallprofile returns: { users: [...], count: number }
+        // Backend fields: id, email, fullName, phone, studentCode, isActive, createdAt
         let userList = [];
         if (Array.isArray(res)) {
           userList = res;
+        } else if (Array.isArray(res.users)) {
+          userList = res.users;
         } else if (Array.isArray(res.data)) {
           userList = res.data;
+        } else if (res.data?.users && Array.isArray(res.data.users)) {
+          userList = res.data.users;
         } else if (res.data?.data && Array.isArray(res.data.data)) {
           userList = res.data.data;
         }
-        return userList as User[];
+        
+        // Map backend fields to frontend User interface
+        // Backend returns: fullName, isActive (boolean)
+        // Frontend expects: name, status ('active' | 'suspended')
+        const mappedUsers = userList.map((user: any) => ({
+          id: user.id,
+          name: user.fullName || user.name || '',
+          email: user.email || '',
+          studentCode: user.studentCode || user.student_code,
+          phone: user.phone || '',
+          role: user.role || user.auth_role || 'USER', // Note: getallprofile doesn't return role, will default to 'USER'
+          status: user.isActive === false ? 'suspended' : 'active',
+          createdAt: user.createdAt || user.created_at || new Date().toISOString(),
+        }));
+
+        return mappedUsers as User[];
       } catch (error) {
         console.error('Error fetching users:', error);
         throw error;
@@ -205,7 +226,7 @@ const UserListPage = () => {
   });
 
   const users = usersData || [];
-
+  
   // Fetch all clubs
   const { data: clubs = [], isLoading: clubsLoading } = useQuery({
     queryKey: ['admin-clubs'],
@@ -245,8 +266,14 @@ const UserListPage = () => {
                 clubs.map(async (club) => {
                     try {
                         const res = await clubApi.getMembers(club.id, { limit: 100 });
+                        
+                        // Handle different response structures
+                        // API returns: { success: true, data: [...], pagination: {...} }
+                        // apiClient.get() returns response.data, so res = { success: true, data: [...], pagination: {...} }
                         let members = [];
-                        if (Array.isArray(res.data)) {
+                        if (Array.isArray(res)) {
+                            members = res;
+                        } else if (Array.isArray(res.data)) {
                             members = res.data;
                         } else if (res.data?.data && Array.isArray(res.data.data)) {
                             members = res.data.data;
@@ -260,7 +287,14 @@ const UserListPage = () => {
                               role: m.role || 'MEMBER',
                               status: m.status || 'ACTIVE',
                               joinedAt: m.joinedAt,
-                              user: m.user
+                              user: m.user || {
+                                id: m.userId,
+                                email: '',
+                                fullName: '',
+                                studentCode: '',
+                                phone: '',
+                                avatarUrl: null
+                              }
                             }))
                         };
                     } catch (err) {
@@ -376,10 +410,16 @@ const UserListPage = () => {
   // Filtering and Sorting Logic for Users
   const filteredUsers = users
     .filter((user: User) => {
-      // Text Search
-      const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            user.email.toLowerCase().includes(searchTerm.toLowerCase());
-      if (!matchesSearch) return false;
+      // Text Search - check both name and email (skip if search is empty)
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          (user.name && user.name.toLowerCase().includes(searchLower)) || 
+          (user.email && user.email.toLowerCase().includes(searchLower)) ||
+          (user.studentCode && user.studentCode.toLowerCase().includes(searchLower));
+        
+        if (!matchesSearch) return false;
+      }
 
       // Status Filter
       if (filter === "all") return true;
@@ -409,12 +449,16 @@ const UserListPage = () => {
       if (!club.members) return club;
       
       const filtered = club.members.filter((member: ClubMember) => {
-          // Text search
-          const matchesSearch = 
-              member.user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              member.user.email.toLowerCase().includes(searchTerm.toLowerCase());
-          
-          if (!matchesSearch) return false;
+          // Text search (skip if search is empty)
+          if (searchTerm.trim()) {
+              const searchLower = searchTerm.toLowerCase();
+              const matchesSearch = 
+                  (member.user?.fullName && member.user.fullName.toLowerCase().includes(searchLower)) ||
+                  (member.user?.email && member.user.email.toLowerCase().includes(searchLower)) ||
+                  (member.user?.studentCode && member.user.studentCode.toLowerCase().includes(searchLower));
+              
+              if (!matchesSearch) return false;
+          }
 
           // Status filter
           if (filter === "all") return true;
