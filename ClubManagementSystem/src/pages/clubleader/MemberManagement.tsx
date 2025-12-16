@@ -114,7 +114,7 @@ export default function MemberManagement() {
       queryClient.invalidateQueries({ queryKey: ['club-members', clubId] });
       toast({
         title: "Thành công",
-        description: "Đã chuyển quyền trưởng CLB. Bạn hiện là thành viên.",
+        description: "Đã chuyển quyền chủ nhiệm. Bạn hiện là thành viên.",
         duration: 5000,
       });
       setShowTransferLeaderDialog(false);
@@ -123,7 +123,7 @@ export default function MemberManagement() {
     onError: (error: any) => {
       toast({
         title: "Lỗi",
-        description: error.response?.data?.message || "Không thể chuyển quyền trưởng CLB",
+        description: error.response?.data?.message || "Không thể chuyển quyền chủ nhiệm",
         variant: "destructive"
       });
     },
@@ -170,7 +170,7 @@ export default function MemberManagement() {
     const upperRole = role.toUpperCase();
     switch (upperRole) {
       case "LEADER":
-        return <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30">Trưởng CLB</Badge>;
+        return <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30">Chủ nhiệm</Badge>;
       case "TREASURER":
         return <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30">Thủ quỹ</Badge>;
       case "STAFF":
@@ -335,11 +335,11 @@ export default function MemberManagement() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Crown className="h-5 w-5 text-amber-500" />
-                Chuyển quyền Trưởng CLB
+                Chuyển quyền chủ nhiệm
               </DialogTitle>
               <DialogDescription className="space-y-2">
                 <p>
-                  Bạn đang chuyển quyền trưởng CLB cho{" "}
+                  Bạn đang chuyển quyền chủ nhiệm cho{" "}
                   <strong>{selectedMember?.profile?.full_name}</strong>
                 </p>
                 <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md text-amber-800 dark:text-amber-200 text-sm">
@@ -347,7 +347,7 @@ export default function MemberManagement() {
                   <ul className="list-disc list-inside space-y-1">
                     <li>Sau khi chuyển quyền, bạn sẽ trở thành thành viên thông thường</li>
                     <li>Bạn sẽ không thể hoàn tác hành động này</li>
-                    <li>Chỉ trưởng CLB mới có thể chuyển quyền cho người khác</li>
+                    <li>Chỉ chủ nhiệm mới có thể chuyển quyền cho người khác</li>
                   </ul>
                 </div>
               </DialogDescription>

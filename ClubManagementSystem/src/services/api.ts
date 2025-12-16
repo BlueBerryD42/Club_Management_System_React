@@ -16,6 +16,7 @@ const attachInterceptors = (client: AxiosInstance) => {
     // Public endpoints that don't require authentication
     const publicEndpoints = [
         '/users/login',
+        '/users/login-with-google',
         '/users/register',
         '/forgot-password',
         '/reset-password',

@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Users, Tent, LogOut, Menu, UserPlus, FileText, History } from "lucide-react";
+import { LayoutDashboard, Users, Tent, LogOut, Menu, FileText, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,7 +62,6 @@ const AdminLayout = () => {
         <NavItem to="/admin/dashboard" icon={LayoutDashboard} label="Tổng quan" />
         <NavItem to="/admin/clubs" icon={Tent} label="Quản lý CLB" />
         <NavItem to="/admin/users" icon={Users} label="Quản lý Người dùng" />
-        <NavItem to="/admin/recruitment" icon={UserPlus} label="Tuyển thành viên" />
         <NavItem to="/admin/finance/requests" icon={FileText} label="Yêu cầu chi" />
         <NavItem to="/admin/audit" icon={History} label="Nhật ký hệ thống" />
       </nav>
@@ -84,8 +83,6 @@ const AdminLayout = () => {
     clubs: "Quản lý CLB",
     create: "Tạo mới",
     users: "Người dùng",
-    recruitment: "Tuyển thành viên",
-    import: "Import",
     finance: "Tài chính",
     requests: "Yêu cầu chi",
     audit: "Nhật ký",

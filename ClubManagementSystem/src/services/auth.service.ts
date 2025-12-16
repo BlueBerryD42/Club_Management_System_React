@@ -26,6 +26,10 @@ export interface LoginResponse {
     };
 }
 
+export interface LoginWithGooglePayload {
+    email: string;
+}
+
 export interface RegisterResponse {
     message: string;
     success: boolean;
@@ -58,6 +62,9 @@ export interface UserProfile {
 export const authApi = {
     login: (data: LoginPayload) => 
         apiClient.post<LoginResponse>('/users/login', data),
+
+    loginWithGoogle: (data: LoginWithGooglePayload) =>
+        apiClient.post<LoginResponse>('/users/login-with-google', data),
     
     register: (data: RegisterPayload) => 
         apiClient.post<RegisterResponse>('/users/register', data),

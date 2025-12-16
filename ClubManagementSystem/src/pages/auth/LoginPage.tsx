@@ -10,6 +10,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setCredentials } from "@/store/slices/authSlice";
 import { useToast } from "@/hooks/use-toast";
 import { authApi } from "@/services/auth.service";
+import supabase from "@/lib/supabaseClient";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -22,6 +23,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
@@ -85,6 +87,47 @@ const Login = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (!supabase) {
+      toast({
+        variant: "destructive",
+        title: "Thiếu cấu hình Supabase",
+        description: "Vui lòng cấu hình VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY.",
+      });
+      return;
+    }
+
+    setIsGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Không thể đăng nhập Google",
+          description: error.message,
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Không thể đăng nhập Google",
+        description: (err as Error).message,
+      });
+    } finally {
+        setIsGoogleLoading(false);
     }
   };
 
@@ -181,6 +224,43 @@ const Login = () => {
                   </Link>
                 </p>
               </form>
+
+              <div className="mt-6">
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase text-muted-foreground">
+                    <span className="bg-card px-2">Hoặc</span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-12"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading || isGoogleLoading}
+                >
+                  {isGoogleLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <svg
+                        className="h-5 w-5"
+                        viewBox="0 0 533.5 544.3"
+                        aria-hidden
+                        focusable="false"
+                      >
+                        <path fill="#EA4335" d="M533.5 278.4c0-17.4-1.6-34.1-4.6-50.4H272v95.4h147.5c-6.4 34.6-25.7 63.9-54.9 83.5v68h88.7c52 47.9 80.2 117.1 80.2 203.9z" transform="translate(0 -69.2)" />
+                        <path fill="#34A853" d="M106.7 324.1c-2-11-3.2-22.4-3.2-34.1 0-11.7 1.2-23.1 3.2-34.1v-68H18.1C6.4 205.5 0 227 0 250c0 23 6.4 44.5 18.1 62.9z" transform="translate(0 -69.2)" />
+                        <path fill="#4285F4" d="M272 107.9c29.4 0 56.2 10.1 77.2 29.8l58-58C368.4 40.8 322.4 21.8 272 21.8c-104.9 0-195.1 60.3-238.9 148.2l88.7 68c19.2-58.2 74-100.1 138.2-100.1z" transform="translate(0 -69.2)" />
+                        <path fill="#FBBC05" d="M272 507.7c50.4 0 96.4-19 130.1-50l-88.7-68c-24.7 16.6-56.3 26.4-88.7 26.4-64.2 0-119-41.9-138.2-100.1l-88.7 68C76.9 447.4 167.1 507.7 272 507.7z" transform="translate(0 -69.2)" />
+                      </svg>
+                      Đăng nhập với Google
+                    </span>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
