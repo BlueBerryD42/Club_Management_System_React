@@ -13,7 +13,7 @@ const PaymentResultPage = () => {
     const [searchParams] = useSearchParams();
     const statusParam = searchParams.get('status');
     const orderCode = searchParams.get('orderCode');
-    const transactionId = searchParams.get('transactionId');
+    const transactionId = searchParams.get('transactionId');    
 
     // Fetch transaction details if we have an ID
     const { data: transactionResponse, isLoading, isError } = useQuery({
@@ -37,7 +37,13 @@ const PaymentResultPage = () => {
         switch (finalStatus) {
             case 'SUCCESS':
                 setTitle('Thanh toán thành công');
-                setMessage('Giao dịch của bạn đã được xử lý thành công.');
+                if (transaction?.type === 'MEMBERSHIP') {
+                    setMessage('Phí thành viên đã được thanh toán thành công. Bạn đã trở thành thành viên của CLB!');
+                } else if (transaction?.type === 'EVENT_TICKET') {
+                    setMessage('Vé sự kiện đã được thanh toán thành công. Bạn có thể xem vé trong tài khoản của mình.');
+                } else {
+                    setMessage('Giao dịch của bạn đã được xử lý thành công.');
+                }
                 setIcon(<CheckCircle2 className="h-16 w-16 text-green-500" />);
                 break;
             case 'CANCELLED':
@@ -66,7 +72,7 @@ const PaymentResultPage = () => {
                     setIcon(<AlertCircle className="h-16 w-16 text-gray-500" />);
                 }
         }
-    }, [finalStatus, isLoading, isError, transactionId]);
+    }, [finalStatus, isLoading, isError, transactionId, transaction]);
 
     if (isLoading && transactionId) {
         return (
@@ -133,9 +139,22 @@ const PaymentResultPage = () => {
                     )}
                 </CardContent>
                 <CardFooter className="flex flex-col gap-2">
-                    {finalStatus === 'SUCCESS' && (
+                    {finalStatus === 'SUCCESS' && transaction && (
+                        <>
+                            {transaction.type === 'MEMBERSHIP' ? (
+                                <Button asChild className="w-full">
+                                    <Link to="/member/my-clubs">Xem CLB của tôi</Link>
+                                </Button>
+                            ) : (
+                                <Button asChild className="w-full">
+                                    <Link to="/member/my-events">Xem vé của tôi</Link>
+                                </Button>
+                            )}
+                        </>
+                    )}
+                    {finalStatus === 'SUCCESS' && !transaction && (
                         <Button asChild className="w-full">
-                            <Link to="/member/my-events">Xem vé của tôi</Link>
+                            <Link to="/member/dashboard">Về trang quản lý</Link>
                         </Button>
                     )}
                     <Button variant="outline" asChild className="w-full">

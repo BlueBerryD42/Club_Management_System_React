@@ -65,7 +65,6 @@ const Fees = () => {
         type: 'MEMBERSHIP',
         status: 'PENDING',
       });
-      console.log('📊 Pending transactions response:', response.data);
       return response.data;
     },
     enabled: !!user,
@@ -84,6 +83,31 @@ const Fees = () => {
     },
     enabled: !!user,
     refetchInterval: 10000, // Sync with pending query
+  });
+
+  // Get memberships that need payment (PENDING_PAYMENT status)
+  const pendingMemberships = user?.memberships?.filter((m: any) => m.status === 'PENDING_PAYMENT') || [];
+
+  // Fetch clubs to get membership fee amounts
+  const { data: clubsData } = useQuery({
+    queryKey: ['clubs', 'fees'],
+    queryFn: async () => {
+      const { clubApi } = await import('@/services/club.service');
+      const response = await clubApi.getAll({ limit: 100 });
+      const clubs = Array.isArray(response.data) 
+        ? response.data 
+        : Array.isArray(response.data?.data) 
+          ? response.data.data 
+          : [];
+      // Create a map of clubId -> club for quick lookup
+      const clubMap = new Map();
+      clubs.forEach((club: any) => {
+        clubMap.set(club.id, club);
+      });
+      return clubMap;
+    },
+    enabled: !!user && pendingMemberships.length > 0,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Create payment mutation
@@ -169,17 +193,84 @@ const Fees = () => {
     },
   });
 
-  const pendingTransactions: Transaction[] = pendingTransactionsResponse?.data || pendingTransactionsResponse?.transactions || [];
-  const allTransactions: Transaction[] = historyResponse?.data || historyResponse?.transactions || [];
+  // Extract transactions from API response
+  // API returns: { success: true, data: [...], pagination: {...} }
+  // Handle different response structures
+  const extractTransactions = (response: any): Transaction[] => {
+    if (!response) return [];
+    // If response is already an array
+    if (Array.isArray(response)) return response;
+    // If response.data is an array
+    if (Array.isArray(response.data)) return response.data;
+    // If response.transactions is an array
+    if (Array.isArray(response.transactions)) return response.transactions;
+    // If response has nested data.data
+    if (Array.isArray(response.data?.data)) return response.data.data;
+    return [];
+  };
 
-  console.log('✅ Parsed:', { pending: pendingTransactions.length, all: allTransactions.length });
+  const pendingTransactions: Transaction[] = extractTransactions(pendingTransactionsResponse);
+  const allTransactions: Transaction[] = extractTransactions(historyResponse);
 
-  // Filter for completed transactions
+  console.log('✅ Parsed:', { 
+    pending: pendingTransactions.length, 
+    all: allTransactions.length,
+    pendingResponse: pendingTransactionsResponse,
+    historyResponse: historyResponse,
+    pendingTransactions: pendingTransactions,
+    allTransactions: allTransactions
+  });
+  
+  // Log transaction details for debugging
+  if (allTransactions.length > 0) {
+    console.log('📋 Sample transaction:', {
+      id: allTransactions[0].id,
+      amount: allTransactions[0].amount,
+      status: allTransactions[0].status,
+      club: allTransactions[0].club
+    });
+  }
+
+  // Filter for completed transactions (exclude PENDING)
   const completedTransactions = allTransactions.filter(t =>
     t.status === 'SUCCESS' || t.status === 'FAILED' || t.status === 'CANCELLED'
   );
+  
+  // Filter for truly pending transactions (only PENDING status)
+  const trulyPendingTransactions = pendingTransactions.filter(t => t.status === 'PENDING');
 
-  const totalUnpaid = pendingTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+  // Filter out memberships that already have a pending transaction
+  const pendingMembershipsWithoutTransaction = pendingMemberships.filter((membership: any) => {
+    return !trulyPendingTransactions.some(t => t.clubId === membership.clubId);
+  });
+
+  // Debug logging to see what data is causing the issue
+  console.log('🔍 Payment Data Debug:', {
+    pendingMemberships: pendingMemberships.map((m: any) => ({
+      id: m.id,
+      clubId: m.clubId,
+      status: m.status,
+      clubName: m.club?.name
+    })),
+    trulyPendingTransactions: trulyPendingTransactions.map((t: any) => ({
+      id: t.id,
+      clubId: t.clubId,
+      status: t.status,
+      clubName: t.club?.name,
+      amount: t.amount
+    })),
+    pendingMembershipsWithoutTransaction: pendingMembershipsWithoutTransaction.map((m: any) => ({
+      id: m.id,
+      clubId: m.clubId,
+      status: m.status
+    })),
+    totalPendingItems: trulyPendingTransactions.length + pendingMembershipsWithoutTransaction.length
+  });
+
+  // Calculate total items that will be displayed in pending tab
+  const totalPendingItems = trulyPendingTransactions.length + pendingMembershipsWithoutTransaction.length;
+
+  const totalUnpaid = trulyPendingTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
   const handleCreatePayment = (clubId: string) => {
     createPaymentMutation.mutate(clubId);
@@ -209,9 +300,6 @@ const Fees = () => {
     }
   };
 
-  // Get memberships that need payment (PENDING_PAYMENT status)
-  const pendingMemberships = user?.memberships?.filter((m: any) => m.status === 'PENDING_PAYMENT') || [];
-
   return (
     <Layout>
       <div className="container py-8">
@@ -230,7 +318,7 @@ const Fees = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Cần thanh toán</p>
-                  <p className="text-2xl font-bold">{pendingMemberships.length} khoản</p>
+                  <p className="text-2xl font-bold">{totalPendingItems} khoản</p>
                 </div>
               </div>
             </CardContent>
@@ -243,7 +331,7 @@ const Fees = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Chờ xác nhận</p>
-                  <p className="text-2xl font-bold">{pendingTransactions.length} khoản</p>
+                  <p className="text-2xl font-bold">{trulyPendingTransactions.length} khoản</p>
                 </div>
               </div>
             </CardContent>
@@ -266,7 +354,7 @@ const Fees = () => {
         <Tabs defaultValue="pending" className="space-y-6">
           <TabsList>
             <TabsTrigger value="pending">
-              Cần thanh toán ({pendingMemberships.length + pendingTransactions.length})
+              Cần thanh toán ({totalPendingItems})
             </TabsTrigger>
             <TabsTrigger value="history">
               Lịch sử ({completedTransactions.length})
@@ -280,7 +368,7 @@ const Fees = () => {
                   <Skeleton key={i} className="h-32" />
                 ))}
               </div>
-            ) : pendingMemberships.length === 0 && pendingTransactions.length === 0 ? (
+            ) : totalPendingItems === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-success opacity-50" />
@@ -291,7 +379,7 @@ const Fees = () => {
             ) : (
               <div className="grid gap-4">
                 {/* Pending Transactions (have payment link already) */}
-                {pendingTransactions.map((transaction) => (
+                {trulyPendingTransactions.map((transaction) => (
                   <Card key={transaction.id} className="border-warning/50">
                     <CardContent className="p-6">
                       <div className="flex items-center gap-6">
@@ -300,20 +388,20 @@ const Fees = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-lg">Phí thành viên {transaction.club?.name}</h3>
+                            <h3 className="font-semibold text-lg">Phí thành viên {transaction.club?.name || 'N/A'}</h3>
                             <Badge className="bg-warning/20 text-warning border-warning/30">Chờ thanh toán</Badge>
                           </div>
                           <p className="text-sm text-muted-foreground flex items-center gap-1 mb-1">
                             <Building2 className="h-4 w-4" />
-                            {transaction.club?.name}
+                            {transaction.club?.name || 'N/A'}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Order: {transaction.orderCode}
+                            Order: {transaction.orderCode || transaction.paymentReference || 'N/A'}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-2xl font-bold text-warning mb-2">
-                            {Number(transaction.amount).toLocaleString("vi-VN")}đ
+                            {transaction.amount ? Number(transaction.amount).toLocaleString("vi-VN") : '0'}đ
                           </p>
                           <div className="flex gap-2 justify-end">
                             <Button
@@ -342,8 +430,20 @@ const Fees = () => {
                 {/* Pending Memberships (need to create payment) */}
                 {pendingMemberships.map((membership: any) => {
                   // Check if transaction already exists for this membership
-                  const hasTransaction = pendingTransactions.some(t => t.clubId === membership.clubId);
+                  const hasTransaction = trulyPendingTransactions.some(t => t.clubId === membership.clubId);
                   if (hasTransaction) return null;
+
+                  // Get club details from map or membership object
+                  const clubFromMap = clubsData?.get(membership.clubId);
+                  const club = clubFromMap || membership.club;
+                  
+                  // Get membership fee amount from multiple possible sources
+                  const membershipFeeAmount = 
+                    club?.membershipFeeAmount || 
+                    club?.membership_fee_amount || 
+                    membership.club?.membershipFeeAmount || 
+                    membership.club?.membership_fee_amount || 
+                    0;
 
                   return (
                     <Card key={membership.id}>
@@ -354,16 +454,16 @@ const Fees = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-lg mb-1">
-                              Phí thành viên {membership.club?.name}
+                              Phí thành viên {club?.name || membership.club?.name || 'N/A'}
                             </h3>
                             <p className="text-sm text-muted-foreground flex items-center gap-1">
                               <Building2 className="h-4 w-4" />
-                              {membership.club?.name}
+                              {club?.name || membership.club?.name || 'N/A'}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-bold text-primary mb-2">
-                              {Number(membership.club?.membershipFeeAmount || 0).toLocaleString("vi-VN")}đ
+                              {Number(membershipFeeAmount).toLocaleString("vi-VN")}đ
                             </p>
                             <Button
                               size="sm"
@@ -412,18 +512,18 @@ const Fees = () => {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-lg">Phí thành viên {transaction.club?.name}</h3>
+                          <h3 className="font-semibold text-lg">Phí thành viên {transaction.club?.name || 'N/A'}</h3>
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <Building2 className="h-4 w-4" />
-                            {transaction.club?.name}
+                            {transaction.club?.name || 'N/A'}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {format(new Date(transaction.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
+                            {transaction.createdAt ? format(new Date(transaction.createdAt), "dd/MM/yyyy HH:mm", { locale: vi }) : 'N/A'}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-bold mb-1">
-                            {Number(transaction.amount).toLocaleString("vi-VN")}đ
+                            {transaction.amount ? Number(transaction.amount).toLocaleString("vi-VN") : '0'}đ
                           </p>
                           {getStatusBadge(transaction.status)}
                         </div>
