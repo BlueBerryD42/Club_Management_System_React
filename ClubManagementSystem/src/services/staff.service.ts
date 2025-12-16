@@ -1,8 +1,12 @@
 import apiClient from "./api";
 
-export interface CheckInPayload {
-    ticketCode: string;
-    eventId?: string; // Optional if ticketCode is unique globally
+export interface CheckInQRPayload {
+    qrCode: string;
+}
+
+export interface CheckInEmailPayload {
+    eventId: string;
+    email: string;
 }
 
 export interface FundRequestPayload {
@@ -12,12 +16,43 @@ export interface FundRequestPayload {
     proofImage: File;
 }
 
+export interface StaffDashboardStats {
+    todayCheckIns: number;
+    totalCheckIns: number;
+    pendingRequests: number;
+    assignedEvents: number;
+}
+
 export const staffService = {
     /**
-     * Check in an attendee using their ticket code (QR content)
+     * Check in an attendee using QR code
      */
-    checkInAttendee: async (payload: CheckInPayload) => {
-        const response = await apiClient.post('/events/check-in', payload);
+    checkInByQR: async (payload: CheckInQRPayload) => {
+        const response = await apiClient.post('/checkin/qr', payload);
+        return response.data;
+    },
+
+    /**
+     * Check in an attendee using email
+     */
+    checkInByEmail: async (payload: CheckInEmailPayload) => {
+        const response = await apiClient.post('/checkin/email', payload);
+        return response.data;
+    },
+
+    /**
+     * Get event participants (for check-in management)
+     */
+    getEventParticipants: async (eventId: string, params?: { checkedIn?: string; search?: string }) => {
+        const response = await apiClient.get(`/checkin/event/${eventId}/participants`, { params });
+        return response.data;
+    },
+
+    /**
+     * Get all events (will be filtered by component to find staff events)
+     */
+    getAllEvents: async () => {
+        const response = await apiClient.get('/events');
         return response.data;
     },
 

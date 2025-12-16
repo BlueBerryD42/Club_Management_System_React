@@ -1022,15 +1022,38 @@ const EventDetailManagement = () => {
                 <div>
                   <div className="text-sm text-muted-foreground mb-2">Nhân viên sự kiện</div>
                   {event.staff && event.staff.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {event.staff.map((staffItem: any) => {
-                        const staffEmail = staffItem.user?.email || staffItem.email || "N/A";
-                        return (
-                          <div key={staffItem.userId || staffItem.id || staffEmail} className="text-sm text-foreground">
-                            {staffEmail}
+                    <div className="space-y-2">
+                      {event.staff.map((staffItem) => (
+                        <div 
+                          key={staffItem.id || staffItem.userId} 
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          {staffItem.user?.avatarUrl ? (
+                            <img 
+                              src={staffItem.user.avatarUrl} 
+                              alt={staffItem.user.fullName || "Staff"} 
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                              {staffItem.user?.fullName?.charAt(0)?.toUpperCase() || staffItem.user?.email?.charAt(0)?.toUpperCase() || "?"}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">
+                              {staffItem.user?.fullName || "N/A"}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {staffItem.user?.email || "N/A"}
+                            </div>
+                            {staffItem.user?.studentCode && (
+                              <div className="text-xs text-muted-foreground">
+                                {staffItem.user.studentCode}
+                              </div>
+                            )}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">Chưa có nhân viên được phân công</div>

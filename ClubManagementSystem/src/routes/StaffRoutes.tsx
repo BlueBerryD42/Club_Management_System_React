@@ -9,7 +9,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 const StaffRoutes: RouteObject = {
   path: '/staff',
   element: (
-    <ProtectedRoute allowedRoles={['STAFF']}>
+    <ProtectedRoute>
       <StaffLayout />
     </ProtectedRoute>
   ),

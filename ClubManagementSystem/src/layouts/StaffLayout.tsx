@@ -1,16 +1,13 @@
-import { Outlet, NavLink } from "react-router-dom";
-import { QrCode, FileText, Home, LogOut } from "lucide-react";
+import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { QrCode, FileText, Home, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAppDispatch } from "@/store/hooks";
-import { logout } from "@/store/slices/authSlice";
 import { Button } from "@/components/ui/button";
 
 const StaffLayout = () => {
-  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
 
-  const handleLogout = () => {
-    dispatch(logout());
-    window.location.href = "/login";
+  const handleBackToUserPage = () => {
+    navigate("/events");
   };
 
   return (
@@ -32,7 +29,7 @@ const StaffLayout = () => {
               to="/staff/scan" 
               className={({ isActive }) => cn("text-sm font-medium transition-colors hover:text-primary", isActive ? "text-primary" : "text-muted-foreground")}
             >
-              Quét QR
+              Check-in
             </NavLink>
             <NavLink 
               to="/staff/requests" 
@@ -41,9 +38,9 @@ const StaffLayout = () => {
               Yêu cầu chi
             </NavLink>
           </nav>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Đăng xuất
+          <Button variant="ghost" size="sm" onClick={handleBackToUserPage}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Về trang chủ
           </Button>
         </div>
       </header>
@@ -71,7 +68,7 @@ const StaffLayout = () => {
             className={({ isActive }) => cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", isActive ? "text-primary" : "text-muted-foreground")}
           >
             <QrCode className="h-6 w-6" />
-            <span className="text-[10px] font-medium">Quét mã</span>
+            <span className="text-[10px] font-medium">Check-in</span>
           </NavLink>
 
           <NavLink 
@@ -83,11 +80,11 @@ const StaffLayout = () => {
           </NavLink>
 
           <button 
-            onClick={handleLogout}
-            className="flex flex-col items-center gap-1 p-2 rounded-lg text-muted-foreground hover:text-destructive transition-colors"
+            onClick={handleBackToUserPage}
+            className="flex flex-col items-center gap-1 p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors"
           >
-            <LogOut className="h-6 w-6" />
-            <span className="text-[10px] font-medium">Thoát</span>
+            <ArrowLeft className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Về trang chủ</span>
           </button>
         </div>
       </div>
