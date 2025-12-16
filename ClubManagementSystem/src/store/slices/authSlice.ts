@@ -8,13 +8,13 @@ export interface User {
     phone?: string;
     studentCode?: string;
     avatarUrl?: string;
-    createdAt?: string;
-    updatedAt?: string;
     memberships?: Array<{
         clubId: string;
         role: 'LEADER' | 'MEMBER' | 'STAFF' | 'TREASURER';
         status: string;
     }>;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 interface AuthState {

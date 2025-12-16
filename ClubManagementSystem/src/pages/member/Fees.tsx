@@ -1,174 +1,216 @@
-import { useState, useEffect } from "react";
-// import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// Progress not used
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAppSelector } from "@/store/hooks";
-// import axios from "axios"; // Use axios for mock API
 import { useToast } from "@/hooks/use-toast";
-import { 
-  CreditCard, 
-  Building2, 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { transactionApi } from "@/services/transaction.service";
+import {
+  CreditCard,
+  Building2,
   Clock,
   CheckCircle2,
   AlertCircle,
-  Wallet
+  Wallet,
+  ExternalLink,
+  QrCode as QrCodeIcon,
 } from "lucide-react";
-import { format, isPast } from "date-fns";
+import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
-interface Fee {
+interface Transaction {
   id: string;
-  name: string;
-  description: string | null;
-  amount: number;
-  due_date: string | null;
-  is_active: boolean;
-  club_id: string;
-  clubs: {
-    name: string;
-  };
-}
-
-interface Payment {
-  id: string;
-  fee_id: string;
-  amount: number;
+  userId: string;
+  type: string;
   status: string;
-  paid_at: string;
-  fees: {
+  amount: number;
+  orderCode: string;
+  checkoutUrl?: string;
+  qrCode?: string;
+  clubId?: string;
+  eventId?: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  club?: {
+    id: string;
     name: string;
-    clubs: {
-      name: string;
-    };
+    logoUrl?: string;
   };
 }
 
 const Fees = () => {
   const user = useAppSelector((s) => s.auth.user);
-  const loading = false;
-  // const navigate = useNavigate();
   const { toast } = useToast();
-  const [fees, setFees] = useState<Fee[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
-  // TODO: Khôi phục auth check khi kết nối API
-  // useEffect(() => {
-  //   if (!loading && !user) {
-  //     navigate("/login");
-  //   }
-  // }, [user, loading, navigate]);
-
-  // useEffect(() => {
-  //   if (user) {
-  //     fetchData();
-  //   }
-  // }, [user]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    if (!user) return;
-    setLoadingData(true);
-    setTimeout(() => {
-      setFees([
-        {
-          id: "1",
-          name: "Phí CLB Công nghệ",
-          description: "Phí thường niên năm 2024",
-          amount: 100000,
-          due_date: new Date(Date.now() + 86400000 * 7).toISOString(),
-          is_active: true,
-          club_id: "club1",
-          clubs: { name: "CLB Công nghệ" },
-        },
-      ]);
-      setPayments([
-        {
-          id: "p1",
-          fee_id: "1",
-          amount: 100000,
-          status: "pending",
-          paid_at: new Date().toISOString(),
-          fees: {
-            name: "Phí CLB Công nghệ",
-            clubs: { name: "CLB Công nghệ" },
-          },
-        },
-      ]);
-      setLoadingData(false);
-    }, 800);
-  };
-
-  const handlePayment = async (fee: Fee) => {
-    setProcessingPayment(fee.id);
-    setTimeout(() => {
-      toast({
-        title: "Đã ghi nhận",
-        description: "Yêu cầu thanh toán đã được gửi. Vui lòng chờ xác nhận.",
+  // Fetch pending membership transactions
+  const { data: pendingTransactionsResponse, isLoading: loadingPending } = useQuery({
+    queryKey: ['transactions', 'MEMBERSHIP', 'PENDING'],
+    queryFn: async () => {
+      const response = await transactionApi.getMyTransactions({
+        type: 'MEMBERSHIP',
+        status: 'PENDING',
       });
-      fetchData();
-      setProcessingPayment(null);
-    }, 1000);
+      console.log('📊 Pending transactions response:', response.data);
+      return response.data;
+    },
+    enabled: !!user,
+    refetchInterval: 10000, // Auto refresh every 10s for faster updates during testing
+  });
+
+  // Fetch transaction history (all statuses)
+  const { data: historyResponse, isLoading: loadingHistory } = useQuery({
+    queryKey: ['transactions', 'MEMBERSHIP', 'history'],
+    queryFn: async () => {
+      const response = await transactionApi.getMyTransactions({
+        type: 'MEMBERSHIP',
+      });
+      console.log('📜 All transactions response:', response.data);
+      return response.data;
+    },
+    enabled: !!user,
+    refetchInterval: 10000, // Sync with pending query
+  });
+
+  // Create payment mutation
+  const createPaymentMutation = useMutation({
+    mutationFn: async (clubId: string) => {
+      const response = await transactionApi.createPayment({
+        type: 'MEMBERSHIP',
+        clubId,
+      });
+      return response.data;
+    },
+    onSuccess: (response) => {
+      const transaction = response.data || response.transaction;
+      setSelectedTransaction(transaction);
+      setShowPaymentDialog(true);
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      toast({ title: "Thành công", description: "Đã tạo link thanh toán" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể tạo link thanh toán",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Get payment info mutation (for existing transactions)
+  const getPaymentInfoMutation = useMutation({
+    mutationFn: async (transactionId: string) => {
+      const response = await transactionApi.getPaymentInfo(transactionId);
+      return response.data;
+    },
+    onSuccess: (response) => {
+      const paymentInfo = response.data || response;
+      setSelectedTransaction(paymentInfo);
+      setShowPaymentDialog(true);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể lấy thông tin thanh toán",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Check and sync payment status from PayOS
+  const checkStatusMutation = useMutation({
+    mutationFn: async (transactionId: string) => {
+      const response = await transactionApi.checkAndSyncStatus(transactionId);
+      return response.data;
+    },
+    onSuccess: (response) => {
+      const result = response.data || response;
+      if (result.status === 'SUCCESS') {
+        toast({
+          title: "🎉 Thanh toán thành công!",
+          description: "Phí thành viên đã được xác nhận. Membership của bạn đã được kích hoạt!",
+        });
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        setShowPaymentDialog(false);
+      } else if (result.status === 'CANCELLED') {
+        toast({
+          title: "Giao dịch đã hủy",
+          description: "Giao dịch đã bị hủy hoặc hết hạn. Bạn có thể tạo thanh toán mới.",
+          variant: "destructive",
+        });
+        queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      } else {
+        toast({
+          title: "Chưa thanh toán",
+          description: "Giao dịch vẫn đang chờ thanh toán. Vui lòng quét QR hoặc mở link để thanh toán.",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể kiểm tra trạng thái thanh toán",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const pendingTransactions: Transaction[] = pendingTransactionsResponse?.data || pendingTransactionsResponse?.transactions || [];
+  const allTransactions: Transaction[] = historyResponse?.data || historyResponse?.transactions || [];
+
+  console.log('✅ Parsed:', { pending: pendingTransactions.length, all: allTransactions.length });
+
+  // Filter for completed transactions
+  const completedTransactions = allTransactions.filter(t =>
+    t.status === 'SUCCESS' || t.status === 'FAILED' || t.status === 'CANCELLED'
+  );
+
+  const totalUnpaid = pendingTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const handleCreatePayment = (clubId: string) => {
+    createPaymentMutation.mutate(clubId);
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="container py-8">
-          <Skeleton className="h-10 w-48 mb-8" />
-          <div className="grid gap-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-32" />
-            ))}
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const handleViewPayment = (transaction: Transaction) => {
+    getPaymentInfoMutation.mutate(transaction.id);
+  };
 
-  // Filter fees that haven't been paid
-  const paidFeeIds = payments
-    .filter(p => p.status === "approved")
-    .map(p => p.fee_id);
-  
-  const pendingPaymentFeeIds = payments
-    .filter(p => p.status === "pending")
-    .map(p => p.fee_id);
-  
-  const unpaidFees = fees.filter(f => !paidFeeIds.includes(f.id) && !pendingPaymentFeeIds.includes(f.id));
-  const pendingFees = fees.filter(f => pendingPaymentFeeIds.includes(f.id));
-
-  const totalUnpaid = unpaidFees.reduce((sum, f) => sum + Number(f.amount), 0);
+  const handleOpenPaymentLink = () => {
+    if (selectedTransaction?.checkoutUrl) {
+      window.open(selectedTransaction.checkoutUrl, '_blank');
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "approved":
+      case "SUCCESS":
         return <Badge className="bg-success/20 text-success border-success/30">Đã thanh toán</Badge>;
-      case "pending":
-        return <Badge className="bg-warning/20 text-warning border-warning/30">Chờ xác nhận</Badge>;
-      case "rejected":
-        return <Badge className="bg-destructive/20 text-destructive border-destructive/30">Từ chối</Badge>;
+      case "PENDING":
+        return <Badge className="bg-warning/20 text-warning border-warning/30">Chờ thanh toán</Badge>;
+      case "FAILED":
+      case "CANCELLED":
+        return <Badge className="bg-destructive/20 text-destructive border-destructive/30">Thất bại</Badge>;
       default:
         return null;
     }
   };
+
+  // Get memberships that need payment (PENDING_PAYMENT status)
+  const pendingMemberships = user?.memberships?.filter((m: any) => m.status === 'PENDING_PAYMENT') || [];
 
   return (
     <Layout>
@@ -188,7 +230,7 @@ const Fees = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Cần thanh toán</p>
-                  <p className="text-2xl font-bold">{unpaidFees.length} khoản</p>
+                  <p className="text-2xl font-bold">{pendingMemberships.length} khoản</p>
                 </div>
               </div>
             </CardContent>
@@ -201,7 +243,7 @@ const Fees = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Chờ xác nhận</p>
-                  <p className="text-2xl font-bold">{pendingFees.length} khoản</p>
+                  <p className="text-2xl font-bold">{pendingTransactions.length} khoản</p>
                 </div>
               </div>
             </CardContent>
@@ -224,21 +266,21 @@ const Fees = () => {
         <Tabs defaultValue="pending" className="space-y-6">
           <TabsList>
             <TabsTrigger value="pending">
-              Cần thanh toán ({unpaidFees.length + pendingFees.length})
+              Cần thanh toán ({pendingMemberships.length + pendingTransactions.length})
             </TabsTrigger>
             <TabsTrigger value="history">
-              Lịch sử ({payments.length})
+              Lịch sử ({completedTransactions.length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending">
-            {loadingData ? (
+            {loadingPending ? (
               <div className="grid gap-4">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-32" />
                 ))}
               </div>
-            ) : unpaidFees.length === 0 && pendingFees.length === 0 ? (
+            ) : pendingMemberships.length === 0 && pendingTransactions.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-success opacity-50" />
@@ -248,9 +290,9 @@ const Fees = () => {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {/* Pending payment fees */}
-                {pendingFees.map((fee) => (
-                  <Card key={fee.id} className="border-warning/50">
+                {/* Pending Transactions (have payment link already) */}
+                {pendingTransactions.map((transaction) => (
+                  <Card key={transaction.id} className="border-warning/50">
                     <CardContent className="p-6">
                       <div className="flex items-center gap-6">
                         <div className="h-14 w-14 rounded-xl bg-warning/10 flex items-center justify-center flex-shrink-0">
@@ -258,99 +300,78 @@ const Fees = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-lg">{fee.name}</h3>
-                            <Badge className="bg-warning/20 text-warning border-warning/30">Chờ xác nhận</Badge>
+                            <h3 className="font-semibold text-lg">Phí thành viên {transaction.club?.name}</h3>
+                            <Badge className="bg-warning/20 text-warning border-warning/30">Chờ thanh toán</Badge>
                           </div>
                           <p className="text-sm text-muted-foreground flex items-center gap-1 mb-1">
                             <Building2 className="h-4 w-4" />
-                            {fee.clubs?.name}
+                            {transaction.club?.name}
                           </p>
-                          {fee.description && (
-                            <p className="text-sm text-muted-foreground">{fee.description}</p>
-                          )}
+                          <p className="text-sm text-muted-foreground">
+                            Order: {transaction.orderCode}
+                          </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-warning">
-                            {Number(fee.amount).toLocaleString("vi-VN")}đ
+                          <p className="text-2xl font-bold text-warning mb-2">
+                            {Number(transaction.amount).toLocaleString("vi-VN")}đ
                           </p>
-                          <p className="text-xs text-muted-foreground">Đang xử lý</p>
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleViewPayment(transaction)}
+                              disabled={getPaymentInfoMutation.isPending}
+                            >
+                              <QrCodeIcon className="h-4 w-4 mr-2" />
+                              Xem QR
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => checkStatusMutation.mutate(transaction.id)}
+                              disabled={checkStatusMutation.isPending}
+                            >
+                              {checkStatusMutation.isPending ? "Đang kiểm tra..." : "Đã thanh toán?"}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
 
-                {/* Unpaid fees */}
-                {unpaidFees.map((fee) => {
-                  const isOverdue = fee.due_date && isPast(new Date(fee.due_date));
-                  
+                {/* Pending Memberships (need to create payment) */}
+                {pendingMemberships.map((membership: any) => {
+                  // Check if transaction already exists for this membership
+                  const hasTransaction = pendingTransactions.some(t => t.clubId === membership.clubId);
+                  if (hasTransaction) return null;
+
                   return (
-                    <Card key={fee.id} className={isOverdue ? "border-destructive/50" : ""}>
+                    <Card key={membership.id}>
                       <CardContent className="p-6">
                         <div className="flex items-center gap-6">
-                          <div className={`h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            isOverdue ? "bg-destructive/10" : "bg-primary/10"
-                          }`}>
-                            <CreditCard className={`h-7 w-7 ${isOverdue ? "text-destructive" : "text-primary"}`} />
+                          <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <CreditCard className="h-7 w-7 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-lg">{fee.name}</h3>
-                              {isOverdue && (
-                                <Badge className="bg-destructive/20 text-destructive border-destructive/30">Quá hạn</Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground flex items-center gap-1 mb-1">
+                            <h3 className="font-semibold text-lg mb-1">
+                              Phí thành viên {membership.club?.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
                               <Building2 className="h-4 w-4" />
-                              {fee.clubs?.name}
+                              {membership.club?.name}
                             </p>
-                            {fee.due_date && (
-                              <p className={`text-sm ${isOverdue ? "text-destructive" : "text-muted-foreground"}`}>
-                                Hạn nộp: {format(new Date(fee.due_date), "dd/MM/yyyy", { locale: vi })}
-                              </p>
-                            )}
-                            {fee.description && (
-                              <p className="text-sm text-muted-foreground mt-1">{fee.description}</p>
-                            )}
                           </div>
                           <div className="text-right">
                             <p className="text-2xl font-bold text-primary mb-2">
-                              {Number(fee.amount).toLocaleString("vi-VN")}đ
+                              {Number(membership.club?.membershipFeeAmount || 0).toLocaleString("vi-VN")}đ
                             </p>
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  size="sm"
-                                  disabled={processingPayment === fee.id}
-                                >
-                                  {processingPayment === fee.id ? "Đang xử lý..." : "Thanh toán"}
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Thanh toán phí CLB</DialogTitle>
-                                  <DialogDescription>
-                                    Xác nhận thanh toán khoản phí "{fee.name}" của {fee.clubs?.name}
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="py-4">
-                                  <div className="flex justify-between items-center p-4 bg-muted rounded-lg mb-4">
-                                    <span>Số tiền:</span>
-                                    <span className="text-xl font-bold">{Number(fee.amount).toLocaleString("vi-VN")}đ</span>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mb-4">
-                                    Bằng cách bấm "Xác nhận", yêu cầu thanh toán của bạn sẽ được gửi đến quản lý CLB để xác nhận.
-                                  </p>
-                                  <Button 
-                                    className="w-full" 
-                                    onClick={() => handlePayment(fee)}
-                                    disabled={processingPayment === fee.id}
-                                  >
-                                    Xác nhận thanh toán
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                            <Button
+                              size="sm"
+                              onClick={() => handleCreatePayment(membership.clubId)}
+                              disabled={createPaymentMutation.isPending}
+                            >
+                              {createPaymentMutation.isPending ? "Đang tạo..." : "Thanh toán"}
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -362,7 +383,13 @@ const Fees = () => {
           </TabsContent>
 
           <TabsContent value="history">
-            {payments.length === 0 ? (
+            {loadingHistory ? (
+              <div className="grid gap-4">
+                {[1, 2].map((i) => (
+                  <Skeleton key={i} className="h-32" />
+                ))}
+              </div>
+            ) : completedTransactions.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
                   <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -372,37 +399,33 @@ const Fees = () => {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {payments.map((payment) => (
-                  <Card key={payment.id}>
+                {completedTransactions.map((transaction) => (
+                  <Card key={transaction.id}>
                     <CardContent className="p-6">
                       <div className="flex items-center gap-6">
-                        <div className={`h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          payment.status === "approved" ? "bg-success/10" : 
-                          payment.status === "pending" ? "bg-warning/10" : "bg-destructive/10"
-                        }`}>
-                          {payment.status === "approved" ? (
+                        <div className={`h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 ${transaction.status === "SUCCESS" ? "bg-success/10" : "bg-destructive/10"
+                          }`}>
+                          {transaction.status === "SUCCESS" ? (
                             <CheckCircle2 className="h-7 w-7 text-success" />
-                          ) : payment.status === "pending" ? (
-                            <Clock className="h-7 w-7 text-warning" />
                           ) : (
                             <AlertCircle className="h-7 w-7 text-destructive" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-lg">{payment.fees?.name}</h3>
+                          <h3 className="font-semibold text-lg">Phí thành viên {transaction.club?.name}</h3>
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <Building2 className="h-4 w-4" />
-                            {payment.fees?.clubs?.name}
+                            {transaction.club?.name}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {format(new Date(payment.paid_at), "dd/MM/yyyy HH:mm", { locale: vi })}
+                            {format(new Date(transaction.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-bold mb-1">
-                            {Number(payment.amount).toLocaleString("vi-VN")}đ
+                            {Number(transaction.amount).toLocaleString("vi-VN")}đ
                           </p>
-                          {getStatusBadge(payment.status)}
+                          {getStatusBadge(transaction.status)}
                         </div>
                       </div>
                     </CardContent>
@@ -412,6 +435,75 @@ const Fees = () => {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Payment Dialog with QR Code */}
+        <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Thanh toán phí thành viên</DialogTitle>
+              <DialogDescription>
+                Quét mã QR hoặc mở link để thanh toán qua PayOS
+              </DialogDescription>
+            </DialogHeader>
+            {selectedTransaction && (
+              <div className="space-y-4">
+                {/* QR Code */}
+                {selectedTransaction.qrCode && (
+                  <div className="flex justify-center p-4 bg-muted rounded-lg">
+                    <img
+                      src={selectedTransaction.qrCode}
+                      alt="QR Code"
+                      className="w-64 h-64"
+                    />
+                  </div>
+                )}
+
+                {/* Payment Info */}
+                <div className="space-y-2">
+                  <div className="flex justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm text-muted-foreground">Số tiền:</span>
+                    <span className="font-bold">{Number(selectedTransaction.amount).toLocaleString("vi-VN")}đ</span>
+                  </div>
+                  <div className="flex justify-between p-3 bg-muted rounded-lg">
+                    <span className="text-sm text-muted-foreground">Mã đơn:</span>
+                    <span className="font-mono font-bold">{selectedTransaction.orderCode}</span>
+                  </div>
+                  {selectedTransaction.club && (
+                    <div className="flex justify-between p-3 bg-muted rounded-lg">
+                      <span className="text-sm text-muted-foreground">Câu lạc bộ:</span>
+                      <span className="font-medium">{selectedTransaction.club.name}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Payment Link Button */}
+                {selectedTransaction.checkoutUrl && (
+                  <Button
+                    className="w-full"
+                    onClick={handleOpenPaymentLink}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Mở link thanh toán
+                  </Button>
+                )}
+
+                {/* Check Status Button */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => checkStatusMutation.mutate(selectedTransaction.id)}
+                  disabled={checkStatusMutation.isPending}
+                >
+                  {checkStatusMutation.isPending ? "Đang kiểm tra..." : "✓ Đã thanh toán? Kiểm tra ngay"}
+                </Button>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Sau khi thanh toán xong, nhấn nút trên để cập nhật trạng thái
+                </p>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

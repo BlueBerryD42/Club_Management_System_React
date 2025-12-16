@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import JoinClubDialog from "@/components/member/JoinClubDialog";
 import { useAppSelector } from "@/store/hooks";
 import { clubApi } from '@/services/club.service';
+import { eventService } from '@/services/event.service';
 import {
   Users,
   Star,
@@ -32,9 +33,10 @@ import {
 
 const ClubDetail = () => {
   const { id } = useParams<{ id: string }>();
-  
+
   // Get current user from Redux (must be called before any early returns)
   const user = useAppSelector((s) => s.auth.user);
+  const queryClient = useQueryClient();
 
   // Fetch club details from API
   const { data: clubResponse, isLoading, error } = useQuery({
@@ -44,6 +46,36 @@ const ClubDetail = () => {
       return response.data;
     },
     enabled: !!id,
+  });
+
+  // Fetch user's applications to check pending status
+  const { data: applicationsResponse } = useQuery({
+    queryKey: ['my-applications'],
+    queryFn: async () => {
+      const response = await clubApi.getMyApplications();
+      return response.data;
+    },
+    enabled: !!user,
+  });
+
+  // Fetch club events (use real clubId after club detail loads)
+  const { data: eventsResponse, isLoading: eventsLoading } = useQuery({
+    queryKey: ['club-events', clubResponse?.data?.id],
+    queryFn: async () => {
+      const response = await eventService.getAll({ clubId: clubResponse?.data?.id });
+      return response;
+    },
+    enabled: !!clubResponse?.data?.id,
+  });
+
+  // Fetch club members (use real clubId after club detail loads)
+  const { data: membersResponse, isLoading: membersLoading } = useQuery({
+    queryKey: ['club-members', clubResponse?.data?.id],
+    queryFn: async () => {
+      const response = await clubApi.getMembers(clubResponse?.data?.id, { limit: 8 });
+      return response.data;
+    },
+    enabled: !!clubResponse?.data?.id,
   });
 
   // Show loading state
@@ -76,15 +108,15 @@ const ClubDetail = () => {
   const clubData = {
     id: club.id,
     name: club.name,
-    category: club.description?.includes('học') ? 'Học thuật' : 
-              club.description?.includes('nghệ thuật') ? 'Nghệ thuật' :
-              club.description?.includes('tình nguyện') ? 'Xã hội' :
-              club.description?.includes('thể thao') ? 'Thể thao' : 'Văn hóa',
+    category: club.description?.includes('học') ? 'Học thuật' :
+      club.description?.includes('nghệ thuật') ? 'Nghệ thuật' :
+        club.description?.includes('tình nguyện') ? 'Xã hội' :
+          club.description?.includes('thể thao') ? 'Thể thao' : 'Văn hóa',
     members: club._count?.memberships || 0,
     description: club.description || '',
     longDescription: club.description || '',
     image: club.logoUrl || "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&h=400&fit=crop",
-    isRecruiting: club.status === 'ACTIVE',
+    isRecruiting: club.isActive === true, // Allow joining if club is active
     rating: 4.8,
     totalReviews: 45,
     foundedYear: new Date(club.createdAt).getFullYear(),
@@ -104,34 +136,39 @@ const ClubDetail = () => {
       "Top 10 CLB xuất sắc toàn quốc",
       "200+ thành viên tìm được việc làm",
     ],
-    upcomingEvents: [
-      {
-        id: 1,
-        title: "Workshop: React 19 Features",
-        date: "2024-12-15",
-        time: "14:00",
-        location: "Hội trường A1",
-        attendees: 45,
-      },
-      {
-        id: 2,
-        title: "Hackathon: AI for Good",
-        date: "2024-12-20",
-        time: "08:00",
-        location: "Khu vực sự kiện",
-        attendees: 120,
-      },
-    ],
-    recentMembers: [
-      { id: 1, name: "Trần Thị B", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" },
-      { id: 2, name: "Lê Văn C", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop" },
-      { id: 3, name: "Phạm Thị D", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop" },
-      { id: 4, name: "Hoàng Văn E", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" },
-    ],
+    upcomingEvents: (eventsResponse?.data || [])
+      .filter((event: any) => !clubResponse?.data?.id || event.clubId === clubResponse.data.id)
+      .map((event: any) => ({
+      id: event.id,
+      title: event.title,
+      date: event.startTime,
+      time: new Date(event.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      location: event.location || event.onlineLink || 'Chưa xác định',
+      attendees: event._count?.tickets || 0,
+    })),
+    recentMembers: ((membersResponse?.data?.data) || membersResponse?.data || []).slice(0, 4).map((member: any) => ({
+      id: member.userId,
+      name: member.user?.fullName || member.user?.email?.split('@')[0] || 'Thành viên',
+      avatar: member.user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.user?.fullName || member.user?.email || 'User')}&background=random`,
+    })),
   };
-  
+
   // Check if user is already a member of this club
   const isMember = !!user?.memberships?.some(m => m.clubId === clubData.id && m.status === 'ACTIVE');
+
+  // Check if user has a pending application
+  const hasPendingApplication = !!(applicationsResponse?.data || applicationsResponse?.applications)?.some(
+    (app: any) => app.clubId === clubData.id && app.status === 'PENDING'
+  );
+
+  // Determine button state
+  const getButtonState = () => {
+    if (isMember) return { label: "Bạn đã là thành viên", disabled: true };
+    if (hasPendingApplication) return { label: "Đã gửi đơn - Chờ duyệt", disabled: true };
+    return { label: "Đăng ký tham gia", disabled: !clubData.isRecruiting };
+  };
+
+  const buttonState = getButtonState();
 
   return (
     <Layout>
@@ -144,7 +181,7 @@ const ClubDetail = () => {
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/40 to-transparent" />
-          
+
           {/* Back Button */}
           <div className="absolute top-4 left-4">
             <Button variant="secondary" size="sm" asChild>
@@ -197,16 +234,6 @@ const ClubDetail = () => {
                   </div>
                 </div>
               </div>
-              <JoinClubDialog
-                clubId={clubData.id.toString()}
-                clubName={clubData.name}
-                disabled={!clubData.isRecruiting}
-                triggerLabel="Đăng ký tham gia"
-                onSubmitted={(payload) => {
-                  console.log("Join request submitted:", payload);
-                  // TODO: Add to pending requests list or refresh data
-                }}
-              />
             </div>
           </div>
         </div>
@@ -260,37 +287,48 @@ const ClubDetail = () => {
                       <CardTitle>Sự kiện sắp tới</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {clubData.upcomingEvents.map((event) => (
-                        <div
-                          key={event.id}
-                          className="flex gap-4 p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <div className="w-16 h-16 rounded-lg gradient-primary flex flex-col items-center justify-center text-primary-foreground">
-                            <span className="text-2xl font-bold">{new Date(event.date).getDate()}</span>
-                            <span className="text-xs">Th{new Date(event.date).getMonth() + 1}</span>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold mb-1">{event.title}</h4>
-                            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-4 w-4" />
-                                {event.time}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <MapPin className="h-4 w-4" />
-                                {event.location}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Users className="h-4 w-4" />
-                                {event.attendees} tham gia
-                              </span>
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm">
-                            Đăng ký
-                          </Button>
+                      {eventsLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
                         </div>
-                      ))}
+                      ) : clubData.upcomingEvents.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Calendar className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                          <p>Chưa có sự kiện nào sắp tới</p>
+                        </div>
+                      ) : (
+                        clubData.upcomingEvents.map((event) => (
+                          <div
+                            key={event.id}
+                            className="flex gap-4 p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                          >
+                            <div className="w-16 h-16 rounded-lg gradient-primary flex flex-col items-center justify-center text-primary-foreground">
+                              <span className="text-2xl font-bold">{new Date(event.date).getDate()}</span>
+                              <span className="text-xs">Th{new Date(event.date).getMonth() + 1}</span>
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold mb-1">{event.title}</h4>
+                              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-4 w-4" />
+                                  {event.time}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-4 w-4" />
+                                  {event.location}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Users className="h-4 w-4" />
+                                  {event.attendees} tham gia
+                                </span>
+                              </div>
+                            </div>
+                            <Button variant="outline" size="sm">
+                              Đăng ký
+                            </Button>
+                          </div>
+                        ))
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -301,23 +339,36 @@ const ClubDetail = () => {
                       <CardTitle>Thành viên mới tham gia</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex flex-wrap gap-4">
-                        {clubData.recentMembers.map((member) => (
-                          <div key={member.id} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted/50">
-                            <Avatar className="h-16 w-16">
-                              <AvatarImage src={member.avatar} alt={member.name} />
-                              <AvatarFallback>{member.name[0]}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm font-medium">{member.name}</span>
+                        {membersLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
                           </div>
-                        ))}
-                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-muted/50 min-w-[100px]">
-                          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                            +{clubData.members - 4}
+                        ) : clubData.recentMembers.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                            <p>Chưa có thành viên nào</p>
                           </div>
-                          <span className="text-sm text-muted-foreground">thành viên</span>
-                        </div>
-                      </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-4">
+                            {clubData.recentMembers.map((member) => (
+                              <div key={member.id} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted/50">
+                                <Avatar className="h-16 w-16">
+                                  <AvatarImage src={member.avatar} alt={member.name} />
+                                  <AvatarFallback>{member.name[0]}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm font-medium">{member.name}</span>
+                              </div>
+                            ))}
+                            {clubData.members > 4 && (
+                              <div className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-muted/50 min-w-[100px]">
+                                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                                  +{clubData.members - 4}
+                                </div>
+                                <span className="text-sm text-muted-foreground">thành viên</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -416,8 +467,12 @@ const ClubDetail = () => {
                     <JoinClubDialog
                       clubId={clubData.id}
                       clubName={clubData.name}
-                      triggerLabel={isMember ? "Bạn đã là thành viên" : "Đăng ký tham gia"}
-                      disabled={isMember}
+                      triggerLabel={buttonState.label}
+                      disabled={buttonState.disabled}
+                      onSubmitted={() => {
+                        // Refresh applications list after successful submission
+                        queryClient.invalidateQueries({ queryKey: ['my-applications'] });
+                      }}
                     />
                   </div>
                 </CardContent>

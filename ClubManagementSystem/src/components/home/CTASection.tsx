@@ -20,10 +20,10 @@ export function CTASection() {
           <p className="text-lg md:text-xl opacity-90 mb-10">
             Đăng ký ngay để khám phá hàng chục câu lạc bộ đa dạng, kết nối với bạn bè cùng đam mê và phát triển bản thân.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="xl" 
+            <Button
+              size="xl"
               className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all"
               asChild
             >
@@ -33,13 +33,13 @@ export function CTASection() {
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Link>
             </Button>
-            <Button 
-              variant="outline" 
-              size="xl" 
+            <Button
+              variant="outline"
+              size="xl"
               className="border-primary-foreground/30 text-primary-foreground bg-primary-foreground/10 hover:bg-primary-foreground/20 hover:text-primary-foreground"
               asChild
             >
-              <Link to="/register-club">
+              <Link to="/clubs">
                 <Building2 className="h-5 w-5 mr-2" />
                 Đăng ký CLB mới
               </Link>

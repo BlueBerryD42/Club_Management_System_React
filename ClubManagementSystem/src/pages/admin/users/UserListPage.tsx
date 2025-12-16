@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { userApi } from "@/services/user.service";
 import { adminService } from "@/services/admin.service";
+import { clubApi } from "@/services/club.service";
 import {
     Table,
     TableBody,
@@ -15,7 +16,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, MoreHorizontal, Lock, Unlock, KeyRound, Edit } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Users, Loader2, MoreHorizontal, Lock, Unlock, KeyRound, Edit, ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -45,15 +47,29 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 
-interface User {
+interface ClubMember {
+  id: string;
+  userId: string;
+  role: string;
+  status: string;
+  joinedAt: string;
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    studentCode: string;
+    phone: string;
+    avatarUrl?: string;
+  };
+}
+
+interface Club {
   id: string;
   name: string;
-  email: string;
-  studentCode: string;
-  phone: string;
-  status: 'active' | 'suspended';
-  createdAt: string;
-  role: string;
+  description?: string;
+  slug: string;
+  members?: ClubMember[];
+  isExpanded?: boolean;
 }
 
 interface PillButtonProps {
@@ -62,7 +78,18 @@ interface PillButtonProps {
   onClick: () => void;
 }
 
-type FilterType = "all" | "active" | "suspended";
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  studentCode?: string;
+  phone?: string;
+  role: string;
+  status: 'active' | 'suspended';
+  createdAt: string;
+}
+
+type FilterType = "all" | "active" | "suspended" | "pending";
 
 // Form schema for editing user
 const editUserSchema = z.object({
@@ -106,6 +133,19 @@ const editUserSchema = z.object({
 
 type EditUserFormValues = z.infer<typeof editUserSchema>;
 
+const getRoleLabel = (role: string): string => {
+  switch (role) {
+    case 'LEADER':
+      return 'Chủ nhiệm';
+    case 'TREASURER':
+      return 'Thủ quỹ';
+    case 'STAFF':
+      return 'Nhân viên';
+    default:
+      return 'Thành viên';
+  }
+};
+
 const PillButton = ({ label, isActive, onClick }: PillButtonProps) => (
     <button
         onClick={onClick}
@@ -126,6 +166,7 @@ const UserListPage = () => {
   const [sortBy, setSortBy] = useState<string>("name-asc");
   const [resetPasswordDialog, setResetPasswordDialog] = useState<{ open: boolean; userId: string | null; userName: string }>({ open: false, userId: null, userName: '' });
   const [editUserDialog, setEditUserDialog] = useState<{ open: boolean; user: User | null }>({ open: false, user: null });
+  const [expandedClubs, setExpandedClubs] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -141,50 +182,96 @@ const UserListPage = () => {
     }
   });
 
-  // Fetch Users from API
-  const { data: users = [], isLoading, error: queryError } = useQuery({
+  // Fetch all users
+  const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
+      try {
+        const res = await adminService.getUsers();
+        let userList = [];
+        if (Array.isArray(res)) {
+          userList = res;
+        } else if (Array.isArray(res.data)) {
+          userList = res.data;
+        } else if (res.data?.data && Array.isArray(res.data.data)) {
+          userList = res.data.data;
+        }
+        return userList as User[];
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+    }
+  });
+
+  const users = usersData || [];
+
+  // Fetch all clubs
+  const { data: clubs = [], isLoading: clubsLoading } = useQuery({
+    queryKey: ['admin-clubs'],
+    queryFn: async () => {
         try {
-            const res = await userApi.getAllUsers();
-            console.log('API Response:', res);
-            
-            // Extract data from response - handle different response structures
-            let userData: unknown[] = [];
+            const res = await clubApi.getAll({ limit: 100 });
+            let clubData = [];
             if (Array.isArray(res)) {
-                userData = res;
+                clubData = res;
             } else if (Array.isArray(res.data)) {
-                userData = res.data;
+                clubData = res.data;
             } else if (res.data?.data && Array.isArray(res.data.data)) {
-                userData = res.data.data;
-            } else if (res.data?.users && Array.isArray(res.data.users)) {
-                userData = res.data.users;
+                clubData = res.data.data;
             }
             
-            console.log('Extracted User data:', userData);
-            
-            return userData.map((rawUser) => {
-              const user = rawUser as Record<string, unknown>;
-              const getValue = (val: unknown): string => {
-                if (val === null || val === undefined) return '';
-                if (typeof val === 'string') return val;
-                if (typeof val === 'number' || typeof val === 'boolean') return String(val);
-                return '';
-              };
-              
-              return {
-                id: getValue(user.id),
-                name: getValue(user.fullName || user.name || user.email || 'Unknown'),
-                email: getValue(user.email || ''),
-                studentCode: getValue(user.studentCode || user.mssv || '-'),
-                phone: getValue(user.phone || user.phoneNumber || '-'),
-                status: (user.isActive === false ? 'suspended' : 'active'),
-                createdAt: getValue(user.createdAt || new Date().toISOString()),
-                role: (user.role === 'ADMIN' || user.role === 'admin') ? 'System Admin' : 'Thành viên'
-              } as User;
-            });
+            return clubData.map((c: any) => ({
+              id: c.id,
+              name: c.name || c.fullName || 'Unknown',
+              description: c.description,
+              slug: c.slug,
+              members: []
+            })) as Club[];
         } catch (error) {
-            console.error('Error fetching users:', error);
+            console.error('Error fetching clubs:', error);
+            throw error;
+        }
+    }
+  });
+
+  // Fetch members for each club
+  const { data: clubsWithMembers = [], isLoading: membersLoading } = useQuery({
+    queryKey: ['club-members', clubs.map(c => c.id).join(',')],
+    enabled: clubs.length > 0,
+    queryFn: async () => {
+        try {
+            const clubsWithData = await Promise.all(
+                clubs.map(async (club) => {
+                    try {
+                        const res = await clubApi.getMembers(club.id, { limit: 100 });
+                        let members = [];
+                        if (Array.isArray(res.data)) {
+                            members = res.data;
+                        } else if (res.data?.data && Array.isArray(res.data.data)) {
+                            members = res.data.data;
+                        }
+                        
+                        return {
+                            ...club,
+                            members: members.map((m: any) => ({
+                              id: m.id,
+                              userId: m.userId,
+                              role: m.role || 'MEMBER',
+                              status: m.status || 'ACTIVE',
+                              joinedAt: m.joinedAt,
+                              user: m.user
+                            }))
+                        };
+                    } catch (err) {
+                        console.error(`Error fetching members for club ${club.id}:`, err);
+                        return { ...club, members: [] };
+                    }
+                })
+            );
+            return clubsWithData;
+        } catch (error) {
+            console.error('Error fetching members:', error);
             throw error;
         }
     }
@@ -286,7 +373,7 @@ const UserListPage = () => {
     }
   };
 
-  // Filtering and Sorting Logic
+  // Filtering and Sorting Logic for Users
   const filteredUsers = users
     .filter((user: User) => {
       // Text Search
@@ -317,187 +404,323 @@ const UserListPage = () => {
       }
     });
 
-  const isLoaderVisible = isLoading;
-  const isErrorVisible = !isLoading && queryError;
-  const isEmptyVisible = !isLoading && !queryError && users.length === 0;
-  const isTableVisible = !isLoading && !queryError && users.length > 0;
+  // Filter members based on search and status filter
+  const filteredClubs = clubsWithMembers.map(club => {
+      if (!club.members) return club;
+      
+      const filtered = club.members.filter((member: ClubMember) => {
+          // Text search
+          const matchesSearch = 
+              member.user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              member.user.email.toLowerCase().includes(searchTerm.toLowerCase());
+          
+          if (!matchesSearch) return false;
+
+          // Status filter
+          if (filter === "all") return true;
+          if (filter === "active") return member.status === "ACTIVE";
+          if (filter === "pending") return member.status !== "ACTIVE";
+          
+          return true;
+      });
+
+      return { ...club, members: filtered };
+  }).filter(club => club.members && club.members.length > 0);
+
+  const toggleClub = (clubId: string) => {
+      const newExpanded = new Set(expandedClubs);
+      if (newExpanded.has(clubId)) {
+          newExpanded.delete(clubId);
+      } else {
+          newExpanded.add(clubId);
+      }
+      setExpandedClubs(newExpanded);
+  };
+
+  const isLoadingUsers = usersLoading;
+  const isLoadingClubs = clubsLoading || membersLoading;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Quản lý Người dùng</h2>
-        <p className="text-muted-foreground">Danh sách thành viên và phân quyền hệ thống.</p>
+        <p className="text-muted-foreground">Quản lý tất cả người dùng và thành viên câu lạc bộ.</p>
       </div>
 
-      <div className="flex flex-col gap-4">
-          {/* Search, Filters, and Sort Row */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex-1 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                  {/* Search Bar */}
-                  <div className="relative w-full sm:w-auto sm:max-w-sm">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                          placeholder="Tìm kiếm tên, email..." 
-                          className="pl-8" 
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                  </div>
+      <Tabs defaultValue="all-users" className="w-full">
+        <TabsList>
+          <TabsTrigger value="all-users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Tất cả người dùng
+          </TabsTrigger>
+          <TabsTrigger value="members-by-club" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Thành viên theo CLB
+          </TabsTrigger>
+        </TabsList>
 
-                  {/* Filter Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                      <PillButton 
-                        label="Tất cả" 
-                        isActive={filter === "all"}
-                        onClick={() => setFilter("all")}
-                      />
-                      <PillButton 
-                        label="Hoạt động" 
-                        isActive={filter === "active"}
-                        onClick={() => setFilter("active")}
-                      />
-                      <PillButton 
-                        label="Đã khóa" 
-                        isActive={filter === "suspended"}
-                        onClick={() => setFilter("suspended")}
-                      />
-                  </div>
+        {/* All Users Tab */}
+        <TabsContent value="all-users" className="space-y-4">
+          <div className="flex flex-col gap-4">
+            {/* Search, Filters, and Sort Row */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="flex-1 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                {/* Search Bar */}
+                <div className="relative w-full sm:w-auto sm:max-w-sm">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Tìm kiếm tên, email..." 
+                    className="pl-8" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+
+                {/* Filter Buttons */}
+                <div className="flex flex-wrap gap-2">
+                  <PillButton 
+                    label="Tất cả" 
+                    isActive={filter === "all"}
+                    onClick={() => setFilter("all")}
+                  />
+                  <PillButton 
+                    label="Hoạt động" 
+                    isActive={filter === "active"}
+                    onClick={() => setFilter("active")}
+                  />
+                  <PillButton 
+                    label="Đã khóa" 
+                    isActive={filter === "suspended"}
+                    onClick={() => setFilter("suspended")}
+                  />
+                </div>
               </div>
 
               {/* Sort Dropdown */}
               <div className="w-full sm:w-auto">
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-full sm:w-[180px]">
-                          <SelectValue placeholder="Sắp xếp theo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="name-asc">Tên (A-Z)</SelectItem>
-                          <SelectItem value="name-desc">Tên (Z-A)</SelectItem>
-                          <SelectItem value="email-asc">Email (A-Z)</SelectItem>
-                          <SelectItem value="email-desc">Email (Z-A)</SelectItem>
-                          <SelectItem value="createdAt-desc">Mới nhất</SelectItem>
-                          <SelectItem value="createdAt-asc">Cũ nhất</SelectItem>
-                      </SelectContent>
-                  </Select>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Sắp xếp theo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name-asc">Tên (A-Z)</SelectItem>
+                    <SelectItem value="name-desc">Tên (Z-A)</SelectItem>
+                    <SelectItem value="email-asc">Email (A-Z)</SelectItem>
+                    <SelectItem value="email-desc">Email (Z-A)</SelectItem>
+                    <SelectItem value="createdAt-desc">Mới nhất</SelectItem>
+                    <SelectItem value="createdAt-asc">Cũ nhất</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
           </div>
-      </div>
 
-      <div className="space-y-4">
+          {isLoadingUsers && (
+            <div className="text-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            </div>
+          )}
 
-            {isLoaderVisible && (
-                <div className="text-center py-10">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                </div>
-            )}
+          {!isLoadingUsers && filteredUsers.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground">
+              <p>Không tìm thấy người dùng nào phù hợp.</p>
+            </div>
+          )}
 
-            {isErrorVisible && (
-                <div className="text-center py-10 text-destructive">
-                    <p>Lỗi tải dữ liệu: {queryError instanceof Error ? queryError.message : 'Unknown error'}</p>
-                </div>
-            )}
+          {!isLoadingUsers && filteredUsers.length > 0 && (
+            <div className="rounded-md border bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Họ tên</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>MSSV</TableHead>
+                    <TableHead>SĐT</TableHead>
+                    <TableHead>Vai trò</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Ngày tạo</TableHead>
+                    <TableHead className="text-right">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user: User) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.studentCode || '-'}</TableCell>
+                      <TableCell>{user.phone || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === 'System Admin' ? 'destructive' : 'outline'}>
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                          {user.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => handleEditUser(user)}
+                              disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Chỉnh sửa thông tin
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {user.status === 'active' ? (
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => handleToggleStatus(user.id, user.status)}
+                                disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
+                              >
+                                <Lock className="mr-2 h-4 w-4" />
+                                Vô hiệu hóa tài khoản
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="text-green-600"
+                                onClick={() => handleToggleStatus(user.id, user.status)}
+                                disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
+                              >
+                                <Unlock className="mr-2 h-4 w-4" />
+                                Kích hoạt tài khoản
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => handleResetPassword(user.id, user.name)}
+                              disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
+                            >
+                              <KeyRound className="mr-2 h-4 w-4" />
+                              Đặt lại mật khẩu
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
 
-            {isEmptyVisible && (
-                <div className="text-center py-10 text-muted-foreground">
-                    <p>Không tìm thấy người dùng nào.</p>
-                </div>
-            )}
+        {/* Members by Club Tab */}
+        <TabsContent value="members-by-club" className="space-y-4">
+          <div className="flex flex-wrap gap-2 mb-4">
+            <PillButton 
+              label="Tất cả" 
+              isActive={filter === "all"}
+              onClick={() => setFilter("all")}
+            />
+            <PillButton 
+              label="Đang hoạt động" 
+              isActive={filter === "active"}
+              onClick={() => setFilter("active")}
+            />
+            <PillButton 
+              label="Chưa kích hoạt" 
+              isActive={filter === "pending"}
+              onClick={() => setFilter("pending")}
+            />
+          </div>
 
-            {isTableVisible && (
-                <div className="rounded-md border bg-white">
-                    <Table>
+          {isLoadingClubs && (
+            <div className="text-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            </div>
+          )}
+
+          {!isLoadingClubs && filteredClubs.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground">
+              <p>Không tìm thấy dữ liệu nào.</p>
+            </div>
+          )}
+
+          {!isLoadingClubs && filteredClubs.length > 0 && (
+            <div className="space-y-4">
+              {filteredClubs.map((club) => (
+                <div key={club.id} className="border rounded-lg bg-white overflow-hidden">
+                  {/* Club Header */}
+                  <button
+                    onClick={() => toggleClub(club.id)}
+                    className="w-full px-4 py-4 hover:bg-muted/50 transition-colors flex items-center gap-3"
+                  >
+                    {expandedClubs.has(club.id) ? (
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <div className="flex-1 text-left">
+                      <h3 className="font-semibold text-lg">{club.name}</h3>
+                      {club.description && (
+                        <p className="text-sm text-muted-foreground">{club.description}</p>
+                      )}
+                    </div>
+                    <Badge variant="secondary">{club.members?.length || 0} thành viên</Badge>
+                  </button>
+
+                  {/* Members Table */}
+                  {expandedClubs.has(club.id) && club.members && club.members.length > 0 && (
+                    <div className="border-t">
+                      <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead>Họ tên</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>MSSV</TableHead>
-                                <TableHead>SĐT</TableHead>
-                                <TableHead>Vai trò</TableHead>
-                                <TableHead>Trạng thái</TableHead>
-                                <TableHead>Ngày tạo</TableHead>
-                                <TableHead className="text-right">Thao tác</TableHead>
-                            </TableRow>
+                          <TableRow>
+                            <TableHead>Họ tên</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>MSSV</TableHead>
+                            <TableHead>SĐT</TableHead>
+                            <TableHead>Vai trò</TableHead>
+                            <TableHead>Trạng thái</TableHead>
+                            <TableHead>Ngày tham gia</TableHead>
+                          </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredUsers.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                                        Không tìm thấy người dùng nào phù hợp.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredUsers.map((user: User) => (
-                                    <TableRow key={user.id}>
-                                        <TableCell className="font-medium">{user.name}</TableCell>
-                                        <TableCell>{user.email}</TableCell>
-                                        <TableCell>{user.studentCode}</TableCell>
-                                        <TableCell>{user.phone}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.role === 'System Admin' ? 'destructive' : 'outline'}>
-                                                {user.role}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                                                {user.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</TableCell>
-                                        <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-8 w-8 p-0">
-                                                        <span className="sr-only">Open menu</span>
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleEditUser(user)}
-                                                        disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
-                                                    >
-                                                        <Edit className="mr-2 h-4 w-4" />
-                                                        Chỉnh sửa thông tin
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    {user.status === 'active' ? (
-                                                        <DropdownMenuItem
-                                                            className="text-destructive"
-                                                            onClick={() => handleToggleStatus(user.id, user.status)}
-                                                            disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
-                                                        >
-                                                            <Lock className="mr-2 h-4 w-4" />
-                                                            Vô hiệu hóa tài khoản
-                                                        </DropdownMenuItem>
-                                                    ) : (
-                                                        <DropdownMenuItem
-                                                            className="text-green-600"
-                                                            onClick={() => handleToggleStatus(user.id, user.status)}
-                                                            disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
-                                                        >
-                                                            <Unlock className="mr-2 h-4 w-4" />
-                                                            Kích hoạt tài khoản
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleResetPassword(user.id, user.name)}
-                                                        disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
-                                                    >
-                                                        <KeyRound className="mr-2 h-4 w-4" />
-                                                        Đặt lại mật khẩu
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
+                          {club.members.map((member: ClubMember) => (
+                            <TableRow key={member.id}>
+                              <TableCell className="font-medium">{member.user.fullName}</TableCell>
+                              <TableCell>{member.user.email}</TableCell>
+                              <TableCell>{member.user.studentCode || '-'}</TableCell>
+                              <TableCell>{member.user.phone || '-'}</TableCell>
+                              <TableCell>
+                                <Badge variant={member.role === 'LEADER' ? 'destructive' : 'outline'}>
+                                  {getRoleLabel(member.role)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={member.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                                  {member.status === 'ACTIVE' ? 'Hoạt động' : 'Chưa kích hoạt'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{new Date(member.joinedAt).toLocaleDateString('vi-VN')}</TableCell>
+                            </TableRow>
+                          ))}
                         </TableBody>
-                    </Table>
+                      </Table>
+                    </div>
+                  )}
+
+                  {expandedClubs.has(club.id) && (!club.members || club.members.length === 0) && (
+                    <div className="border-t px-4 py-8 text-center text-muted-foreground">
+                      Không có thành viên nào.
+                    </div>
+                  )}
                 </div>
-            )}
-      </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Reset Password Confirmation Dialog */}
       <Dialog open={resetPasswordDialog.open} onOpenChange={(open) => setResetPasswordDialog({ ...resetPasswordDialog, open })}>
@@ -629,3 +852,4 @@ const UserListPage = () => {
 };
 
 export default UserListPage;
+

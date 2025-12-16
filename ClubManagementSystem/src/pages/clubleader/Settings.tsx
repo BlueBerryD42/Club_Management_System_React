@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { clubApi } from "@/services/club.service";
 import { ArrowLeft, Save, Building2 } from "lucide-react";
 
 interface Club {
@@ -47,8 +49,7 @@ const CATEGORIES = [
 export default function ClubSettings() {
   const { clubId } = useParams();
   const { toast } = useToast();
-  const [club, setClub] = useState<Club | null>(null);
-  const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -65,41 +66,54 @@ export default function ClubSettings() {
     membership_fee_amount: 0,
   });
 
+  // Fetch club details
+  const { data: clubData, isLoading } = useQuery({
+    queryKey: ['club-details', clubId],
+    queryFn: async () => {
+      const response = await clubApi.getById(clubId!);
+      return response.data?.data;
+    },
+    enabled: !!clubId,
+  });
+
+  // Update membership fee mutation
+  const updateMembershipFeeMutation = useMutation({
+    mutationFn: async (data: { membershipFeeEnabled: boolean; membershipFeeAmount?: number }) => {
+      return await clubApi.configMembershipFee(clubId!, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['club-details', clubId] });
+      toast({ title: "Thành công", description: "Đã cập nhật cấu hình phí thành viên" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Không thể cập nhật cấu hình phí",
+        variant: "destructive"
+      });
+    },
+  });
+
+  // Initialize form data when club data is loaded
   useEffect(() => {
-    // TODO: Kết nối API để lấy thông tin CLB
-    const mockClub: Club = {
-      id: clubId || "",
-      name: "CLB Công nghệ",
-      category: "Kỹ thuật",
-      description: "Câu lạc bộ về công nghệ và kỹ thuật",
-      slug: "clb-cong-nghe",
-      email: "tech@club.edu.vn",
-      phone: "0901234567",
-      facebook_url: "https://facebook.com/techclub",
-      instagram_url: "https://instagram.com/techclub",
-      founded_year: 2020,
-      max_members: 100,
-      is_recruiting: true,
-      membership_fee_enabled: true,
-      membership_fee_amount: 50000,
-    };
-    setClub(mockClub);
-    setFormData({
-      name: mockClub.name,
-      category: mockClub.category,
-      description: mockClub.description,
-      slug: mockClub.slug,
-      email: mockClub.email,
-      phone: mockClub.phone,
-      facebook_url: mockClub.facebook_url,
-      instagram_url: mockClub.instagram_url,
-      founded_year: mockClub.founded_year,
-      max_members: mockClub.max_members,
-      is_recruiting: mockClub.is_recruiting,
-      membership_fee_enabled: mockClub.membership_fee_enabled,
-      membership_fee_amount: mockClub.membership_fee_amount,
-    });
-  }, [clubId]);
+    if (clubData) {
+      setFormData({
+        name: clubData.name || "",
+        category: clubData.category || "",
+        description: clubData.description || "",
+        slug: clubData.slug || "",
+        email: clubData.email || "",
+        phone: clubData.phone || "",
+        facebook_url: clubData.facebookUrl || clubData.facebook_url || "",
+        instagram_url: clubData.instagramUrl || clubData.instagram_url || "",
+        founded_year: clubData.foundedYear || clubData.founded_year || new Date().getFullYear(),
+        max_members: clubData.maxMembers || clubData.max_members || 100,
+        is_recruiting: clubData.isRecruiting ?? clubData.is_recruiting ?? false,
+        membership_fee_enabled: clubData.membershipFeeEnabled ?? clubData.membership_fee_enabled ?? false,
+        membership_fee_amount: clubData.membershipFeeAmount ?? clubData.membership_fee_amount ?? 0,
+      });
+    }
+  }, [clubData]);
 
   const handleSave = async () => {
     // Validation tên CLB
@@ -208,8 +222,8 @@ export default function ClubSettings() {
         return;
       }
 
-      if (formData.membership_fee_amount < 10000) {
-        toast({ title: "Lỗi", description: "Phí thành viên tối thiểu là 10,000 VNĐ", variant: "destructive" });
+      if (formData.membership_fee_amount < 2000) {
+        toast({ title: "Lỗi", description: "Phí thành viên tối thiểu là 2,000 VNĐ", variant: "destructive" });
         return;
       }
 
@@ -217,23 +231,16 @@ export default function ClubSettings() {
         toast({ title: "Lỗi", description: "Phí thành viên không được vượt quá 10,000,000 VNĐ", variant: "destructive" });
         return;
       }
-
-      // Kiểm tra phí phải là bội số của 1000
-      if (formData.membership_fee_amount % 1000 !== 0) {
-        toast({ title: "Lỗi", description: "Phí thành viên phải là bội số của 1,000 VNĐ", variant: "destructive" });
-        return;
-      }
     }
 
-    setSaving(true);
-    // TODO: Kết nối API để lưu
-    setTimeout(() => {
-      setSaving(false);
-      toast({ title: "Thành công", description: "Đã cập nhật thông tin CLB" });
-    }, 1000);
+    // Call membership fee API
+    updateMembershipFeeMutation.mutate({
+      membershipFeeEnabled: formData.membership_fee_enabled,
+      membershipFeeAmount: formData.membership_fee_enabled ? formData.membership_fee_amount : 0,
+    });
   };
 
-  if (!club) {
+  if (isLoading || !clubData) {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
@@ -418,16 +425,22 @@ export default function ClubSettings() {
                     type="number"
                     value={formData.membership_fee_amount || ''}
                     onChange={(e) => setFormData({ ...formData, membership_fee_amount: parseInt(e.target.value) || 0 })}
-                    min={0}
-                    placeholder="Nhập số tiền..."
+                    min={2000}
+                    step={1000}
+                    placeholder="Tối thiểu 2,000 VNĐ"
                     className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
+                  <p className="text-xs text-muted-foreground">Phí phải từ 2,000 VNĐ trở lên</p>
                 </div>
               )}
 
-              <Button onClick={handleSave} className="w-full" disabled={saving}>
+              <Button
+                onClick={handleSave}
+                className="w-full"
+                disabled={updateMembershipFeeMutation.isPending}
+              >
                 <Save className="mr-2 h-4 w-4" />
-                {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                {updateMembershipFeeMutation.isPending ? "Đang lưu..." : "Lưu cấu hình phí"}
               </Button>
             </div>
           </CardContent>

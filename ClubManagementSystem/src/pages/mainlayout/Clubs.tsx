@@ -137,7 +137,7 @@ const Clubs = () => {
   }, [searchQuery]);
 
   // Fetch clubs from backend API
-  const { data: clubsData, isLoading } = useQuery({
+  const { data: clubsData, isLoading, isFetching } = useQuery({
     queryKey: ['public-clubs', debouncedSearch],
     queryFn: async () => {
       const response = await clubApi.getAll({ search: debouncedSearch || undefined });
@@ -149,10 +149,7 @@ const Clubs = () => {
   const allClubs: ClubItem[] = clubsData?.data?.map((club: any) => ({
     id: club.id,
     name: club.name,
-    category: club.description?.includes('học') ? 'Học thuật' : 
-              club.description?.includes('nghệ thuật') || club.description?.includes('âm nhạc') ? 'Nghệ thuật' :
-              club.description?.includes('tình nguyện') ? 'Xã hội' :
-              club.description?.includes('thể thao') ? 'Thể thao' : 'Văn hóa',
+    category: club.category || 'Văn hóa', // Use category field from backend, fallback to Văn hóa
     members: club._count?.memberships || 0,
     description: club.description || '',
     image: club.logoUrl || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=300&fit=crop',
@@ -165,7 +162,9 @@ const Clubs = () => {
     .filter((club) => {
       const matchesSearch = club.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         club.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === "Tất cả" || club.category === selectedCategory;
+      // Case-insensitive category matching
+      const matchesCategory = selectedCategory === "Tất cả" || 
+        (club.category?.toLowerCase() === selectedCategory.toLowerCase());
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
@@ -202,19 +201,18 @@ const Clubs = () => {
             </div>
 
             {/* Category Filter */}
-            <div className="flex gap-2 flex-wrap">
-              {categories.map((cat) => (
-                <Button
-                  key={cat}
-                  variant={selectedCategory === cat ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat)}
-                  className="shrink-0"
-                >
-                  {cat}
-                </Button>
-              ))}
-            </div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-[180px] h-12">
+                <SelectValue placeholder="Danh mục" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Sort & View Options */}
@@ -254,15 +252,15 @@ const Clubs = () => {
             </div>
           </div>
 
-          {/* Loading State */}
-          {isLoading && (
+          {/* Loading State: show only when no data yet */}
+          {isLoading && !clubsData && (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )}
 
           {/* Clubs Grid/List */}
-          {!isLoading && viewMode === "grid" ? (
+          {!isLoading && (clubsData || allClubs.length > 0) && viewMode === "grid" ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredClubs.map((club: any) => (
                 <Link
@@ -311,7 +309,7 @@ const Clubs = () => {
                 </Link>
               ))}
             </div>
-          ) : (
+          ) : !isLoading && (clubsData || allClubs.length > 0) ? (
             <div className="space-y-4">
               {filteredClubs.map((club: any) => (
                 <Link
@@ -359,11 +357,19 @@ const Clubs = () => {
                 </Link>
               ))}
             </div>
-          )}
+          ) : null}
 
-          {!isLoading && filteredClubs.length === 0 && (
+          {!isLoading && (clubsData || allClubs.length > 0) && filteredClubs.length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">Không tìm thấy câu lạc bộ nào phù hợp.</p>
+            </div>
+          )}
+
+          {/* Lightweight inline fetch indicator for refetch (search debounce) */}
+          {isFetching && !isLoading && (
+            <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Đang cập nhật danh sách...
             </div>
           )}
         </div>

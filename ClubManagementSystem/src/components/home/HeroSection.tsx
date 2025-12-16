@@ -21,9 +21,9 @@ export function HeroSection() {
               Hệ thống quản lý CLB hiện đại
             </div>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight animate-slide-up stagger-1">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight animate-slide-up stagger-1 pb-2">
               Kết nối & Phát triển
-              <span className="block text-gradient">Cộng đồng Sinh viên</span>
+              <span className="block text-gradient leading-normal">Cộng đồng Sinh viên</span>
             </h1>
             
             <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 animate-slide-up stagger-2">

@@ -6,6 +6,7 @@ import Profile from '@/pages/member/Profile';
 import MyClubs from '@/pages/member/MyClubs';
 import MyEvents from '@/pages/member/MyEvents';
 import Fees from '@/pages/member/Fees';
+import PendingApplications from '@/pages/member/PendingApplications';
 
 // TODO: Thêm lại ProtectedRoute khi kết nối API authentication
 const MemberRoutes: RouteObject = {
@@ -35,6 +36,10 @@ const MemberRoutes: RouteObject = {
         {
             path: 'fees',
             element: <Fees />,
+        },
+        {
+            path: 'pending-applications',
+            element: <PendingApplications />,
         },
     ],
 };
