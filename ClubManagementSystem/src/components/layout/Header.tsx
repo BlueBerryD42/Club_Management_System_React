@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Users, Calendar, FileText, LogIn, UserPlus, Home, Building2, User, LogOut, CreditCard, LayoutDashboard, Crown } from "lucide-react";
+import { Menu, X, Users, Calendar, FileText, LogIn, UserPlus, Home, Building2, User, LogOut, CreditCard, LayoutDashboard, Crown, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -36,6 +36,7 @@ export function Header() {
   const loading = profileLoading;
   const profile = user ? { full_name: user.fullName || user.email || "Người dùng", avatar_url: user.avatarUrl } : undefined;
   const leaderClubs = (user?.memberships || []).filter(m => m.role === 'LEADER' && m.status === 'ACTIVE');
+  const treasurerClubs = (user?.memberships || []).filter(m => m.role === 'TREASURER' && m.status === 'ACTIVE');
 
   // Scroll detection
   useEffect(() => {
@@ -164,6 +165,20 @@ export function Header() {
                     ))}
                   </>
                 )}
+                {treasurerClubs.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Khu vực Treasurer</div>
+                    {treasurerClubs.map((m) => (
+                      <DropdownMenuItem key={m.clubId} asChild>
+                        <Link to={`/treasurer/${m.clubId}/dashboard`} className="flex items-center gap-2">
+                          <Wallet className="h-4 w-4 text-green-500" />
+                          Quản lý quỹ CLB #{m.clubId.slice(0, 6)}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />
@@ -243,6 +258,22 @@ export function Header() {
                         >
                           <Crown className="h-5 w-5 text-yellow-500" />
                           Quản lý CLB #{m.clubId.slice(0,6)}
+                        </Link>
+                      ))}
+                    </>
+                  )}
+                  {treasurerClubs.length > 0 && (
+                    <>
+                      <div className="px-4 pt-2 text-xs font-medium text-muted-foreground">Khu vực Treasurer</div>
+                      {treasurerClubs.map((m) => (
+                        <Link
+                          key={m.clubId}
+                          to={`/treasurer/${m.clubId}/dashboard`}
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
+                        >
+                          <Wallet className="h-5 w-5 text-green-500" />
+                          Quản lý quỹ CLB #{m.clubId.slice(0,6)}
                         </Link>
                       ))}
                     </>

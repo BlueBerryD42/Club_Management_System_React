@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,57 +52,26 @@ interface MyEvent {
 
 const MyEvents = () => {
   const user = useAppSelector((s) => s.auth.user);
-  const loading = false;
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [registrations, setRegistrations] = useState<MyEvent[]>([]);
-  const [staffEvents, setStaffEvents] = useState<any[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-  const [loadingStaffEvents, setLoadingStaffEvents] = useState(false);
   const [selectedQRCode, setSelectedQRCode] = useState<string | null>(null);
   const [selectedEventTitle, setSelectedEventTitle] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "staff">("upcoming");
 
-  // TODO: Khôi phục auth check khi kết nối API
-  // useEffect(() => {
-  //   if (!loading && !user) {
-  //     navigate("/login");
-  //   }
-  // }, [user, loading, navigate]);
-
-  // useEffect(() => {
-  //   if (user) {
-  //     fetchData();
-  //   }
-  // }, [user]);
-
-  useEffect(() => {
-    if (user) {
-      fetchData();
-      fetchStaffEvents();
-    }
-  }, [user]);
-
-  const fetchData = async () => {
-    if (!user) return;
-    try {
-      setLoadingData(true);
+  // Fetch user tickets with caching
+  const { data: ticketsData, isLoading: loadingData, error: ticketsError } = useQuery<MyEvent[]>({
+    queryKey: ["my-tickets", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
       const response = await ticketService.getMyTickets();
-      console.log("MyEvents - API Response:", response);
-      
       const tickets = response.data?.tickets || [];
-      console.log("MyEvents - Tickets:", tickets);
-      console.log("MyEvents - Tickets count:", tickets.length);
       
       if (!tickets || tickets.length === 0) {
-        console.log("MyEvents - No tickets found");
-        setRegistrations([]);
-        return;
+        return [];
       }
       
       // Map tickets to MyEvent format
-      const mappedRegistrations: MyEvent[] = tickets.map((ticket: Ticket) => {
-        console.log("MyEvents - Mapping ticket:", ticket.id, "Event:", ticket.event?.title, "QRCode:", ticket.qrCode);
+      return tickets.map((ticket: Ticket) => {
         const isOnline = ticket.event.format === 'ONLINE';
         const displayLocation = isOnline
           ? (ticket.onlineLink || ticket.event.location)
@@ -111,7 +81,7 @@ const MyEvents = () => {
           id: ticket.id,
           event_id: ticket.event.id,
           status: ticket.status,
-          checked_in: !!ticket.usedAt, // Check-in if ticket has been used
+          checked_in: !!ticket.usedAt,
           registered_at: ticket.assignedAt || ticket.purchasedAt || ticket.createdAt,
           qrCode: ticket.qrCode || null,
           event_format: ticket.event.format,
@@ -122,70 +92,56 @@ const MyEvents = () => {
             location: displayLocation,
             start_time: ticket.event.startTime,
             end_time: ticket.event.endTime,
-            image_url: null, // Backend doesn't return image_url yet
-            current_attendees: null, // Backend doesn't return this yet
-            max_attendees: null, // Backend doesn't return this yet
+            image_url: null,
+            current_attendees: null,
+            max_attendees: null,
             clubs: {
               name: ticket.event.club.name,
             },
           },
         };
       });
-      
-      console.log("MyEvents - Mapped registrations:", mappedRegistrations);
-      setRegistrations(mappedRegistrations);
-    } catch (error: any) {
-      console.error("Error fetching tickets:", error);
-      console.error("Error details:", error.response?.data);
+    },
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+    retry: 1,
+  });
+
+  // Show error toast if query fails
+  useEffect(() => {
+    if (ticketsError) {
       toast({
         title: "Lỗi",
-        description: error.response?.data?.message || "Không thể tải danh sách sự kiện",
+        description: (ticketsError as any)?.response?.data?.message || "Không thể tải danh sách sự kiện",
         variant: "destructive",
       });
-      setRegistrations([]);
-    } finally {
-      setLoadingData(false);
     }
-  };
+  }, [ticketsError, toast]);
 
-  const fetchStaffEvents = async () => {
-    if (!user) return;
-    try {
-      setLoadingStaffEvents(true);
+  const registrations = ticketsData || [];
+
+  // Fetch staff events with caching
+  const { data: staffEventsData, isLoading: loadingStaffEvents } = useQuery<any[]>({
+    queryKey: ["staff-events", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
       // Include inactive events so staff can see all their assigned events, including ended ones
       const eventsResponse = await eventService.getAll({ includeInactive: 'true' });
       const allEvents = eventsResponse.data || [];
       
       // Filter events where current user is staff
-      const filtered = allEvents.filter((event: any) => 
+      return allEvents.filter((event: any) => 
         event.staff?.some((staff: any) => staff.userId === user?.id)
       );
-      
-      setStaffEvents(filtered);
-    } catch (error: any) {
-      console.error('Error fetching staff events:', error);
-      // Don't show error toast, just log it
-      setStaffEvents([]);
-    } finally {
-      setLoadingStaffEvents(false);
-    }
-  };
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 1,
+  });
+
+  const staffEvents = staffEventsData || [];
 
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="container py-8">
-          <Skeleton className="h-10 w-48 mb-8" />
-          <div className="grid gap-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-40" />
-            ))}
-          </div>
-        </div>
-      </Layout>
-    );
-  }
 
   const upcomingEvents = registrations.filter(r => {
     // Event is past if current time is after endTime (or startTime if no endTime)

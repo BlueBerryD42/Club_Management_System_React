@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -185,14 +186,11 @@ const EventDetailManagement = () => {
   const { clubId, eventId } = useParams<{ clubId: string; eventId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [priceDisplay, setPriceDisplay] = useState("");
-  const [participants, setParticipants] = useState<any[]>([]);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [selectedLocationCapacity, setSelectedLocationCapacity] = useState<number | null>(null);
   
@@ -223,20 +221,36 @@ const EventDetailManagement = () => {
     },
   });
 
-  useEffect(() => {
-    if (eventId) {
-      fetchEvent();
-      fetchParticipants();
-    }
-  }, [eventId]);
+  // Fetch event with caching
+  const { data: eventData, isLoading: loading, error: eventError } = useQuery({
+    queryKey: ["event-details", eventId],
+    queryFn: async () => {
+      if (!eventId) return null;
+      return await eventService.getById(eventId);
+    },
+    enabled: !!eventId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 1,
+  });
 
-  const fetchEvent = async () => {
-    try {
-      setLoading(true);
-      const eventData = await eventService.getById(eventId!);
-      setEvent(eventData);
-      
-      // Populate form with event data
+  const event = eventData || null;
+
+  // Fetch participants with caching
+  const { data: participantsData, isLoading: loadingParticipants } = useQuery({
+    queryKey: ["event-participants", eventId],
+    queryFn: async () => {
+      if (!eventId) return null;
+      return await eventService.getParticipants(eventId);
+    },
+    enabled: !!eventId,
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+  });
+
+  const participants = participantsData?.data?.participants || [];
+
+  // Populate form when event data is loaded
+  useEffect(() => {
+    if (eventData) {
       const startDate = new Date(eventData.startTime);
       const endDate = eventData.endTime ? new Date(eventData.endTime) : null;
       const visibleFromDate = eventData.visibleFrom ? new Date(eventData.visibleFrom) : null;
@@ -268,38 +282,25 @@ const EventDetailManagement = () => {
           setSelectedLocationCapacity(null);
         }
       }
-    } catch (error: any) {
-      console.error("Error fetching event:", error);
+    }
+  }, [eventData, form]);
+
+  // Handle error
+  useEffect(() => {
+    if (eventError) {
       toast({
         title: "Lỗi",
-        description: error.response?.data?.message || "Không thể tải thông tin sự kiện",
+        description: (eventError as any)?.response?.data?.message || "Không thể tải thông tin sự kiện",
         variant: "destructive",
       });
-      navigate(`/club-leader/${clubId}/events`);
-    } finally {
-      setLoading(false);
+      navigate(-1);
     }
-  };
+  }, [eventError, toast, navigate]);
 
-  const fetchParticipants = async () => {
-    if (!eventId) return;
-    try {
-      setLoadingParticipants(true);
-      const response = await eventService.getParticipants(eventId);
-      setParticipants(response.data?.participants || []);
-    } catch (error: any) {
-      console.error("Error fetching participants:", error);
-      // Don't show error toast for participants, just log it
-    } finally {
-      setLoadingParticipants(false);
-    }
-  };
-
-  const handleUpdate = async (data: EventFormValues) => {
-    if (!event) return;
-
-    try {
-      setIsSubmitting(true);
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: async (data: EventFormValues) => {
+      if (!event) throw new Error("Event not found");
       const payload = {
         title: data.title,
         description: data.description || undefined,
@@ -314,48 +315,68 @@ const EventDetailManagement = () => {
         onlineLink: data.format === "ONLINE" ? data.onlineLink : undefined,
         visibleFrom: data.visibleFrom ? new Date(data.visibleFrom).toISOString() : undefined,
       };
-
-      await eventService.update(event.id, payload);
+      return await eventService.update(event.id, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event-details", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["leader-events", clubId] });
+      setIsEditing(false);
       toast({
         title: "Thành công",
-        description: "Cập nhật sự kiện thành công",
+        description: "Đã cập nhật thông tin sự kiện",
       });
-      setIsEditing(false);
-      await fetchEvent();
-    } catch (error: any) {
-      console.error("Error updating event:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Lỗi",
-        description: error.response?.data?.message || "Không thể cập nhật sự kiện",
+        description: error?.response?.data?.message || "Không thể cập nhật sự kiện",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
-    }
+    },
+  });
+
+  const handleUpdate = async (data: EventFormValues) => {
+    if (!event) return;
+    setIsSubmitting(true);
+    updateMutation.mutate(data, {
+      onSettled: () => {
+        setIsSubmitting(false);
+      },
+    });
   };
 
-  const handleDelete = async () => {
-    if (!event) return;
-
-    try {
-      setIsSubmitting(true);
-      await eventService.delete(event.id);
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!event) throw new Error("Event not found");
+      return await eventService.delete(event.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leader-events", clubId] });
       toast({
         title: "Thành công",
         description: "Xóa sự kiện thành công",
       });
-      navigate(`/club-leader/${clubId}/events`);
-    } catch (error: any) {
-      console.error("Error deleting event:", error);
+      navigate(-1);
+    },
+    onError: (error: any) => {
       toast({
         title: "Lỗi",
-        description: error.response?.data?.message || "Không thể xóa sự kiện",
+        description: error?.response?.data?.message || "Không thể xóa sự kiện",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
-      setShowDeleteDialog(false);
-    }
+    },
+  });
+
+  const handleDelete = async () => {
+    if (!event) return;
+    setIsSubmitting(true);
+    deleteMutation.mutate(undefined, {
+      onSettled: () => {
+        setIsSubmitting(false);
+        setShowDeleteDialog(false);
+      },
+    });
   };
 
   const handleMakePublic = async () => {
@@ -388,28 +409,38 @@ const EventDetailManagement = () => {
       }
     }
 
-    try {
-      setIsSubmitting(true);
-      const payload = {
-        visibleFrom: now.toISOString(),
-      };
+    // Make public mutation
+    const makePublicMutation = useMutation({
+      mutationFn: async () => {
+        if (!event) throw new Error("Event not found");
+        const payload = {
+          visibleFrom: now.toISOString(),
+        };
+        return await eventService.update(event.id, payload);
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["event-details", eventId] });
+        queryClient.invalidateQueries({ queryKey: ["leader-events", clubId] });
+        toast({
+          title: "Thành công",
+          description: "Sự kiện đã được công khai",
+        });
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Lỗi",
+          description: error?.response?.data?.message || "Không thể cập nhật sự kiện",
+          variant: "destructive",
+        });
+      },
+    });
 
-      await eventService.update(event.id, payload);
-      toast({
-        title: "Thành công",
-        description: "Sự kiện đã được công khai",
-      });
-      await fetchEvent();
-    } catch (error: any) {
-      console.error("Error making event public:", error);
-      toast({
-        title: "Lỗi",
-        description: error.response?.data?.message || "Không thể cập nhật sự kiện",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    setIsSubmitting(true);
+    makePublicMutation.mutate(undefined, {
+      onSettled: () => {
+        setIsSubmitting(false);
+      },
+    });
   };
 
   if (loading) {
@@ -434,7 +465,7 @@ const EventDetailManagement = () => {
     return (
       <div className="container py-8 text-center">
         <h1 className="text-2xl font-bold mb-4">Không tìm thấy sự kiện</h1>
-        <Button onClick={() => navigate(`/club-leader/${clubId}/events`)} variant="outline">
+        <Button onClick={() => navigate(-1)} variant="outline">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Quay lại
         </Button>
@@ -446,8 +477,52 @@ const EventDetailManagement = () => {
   // Event is past if it has an endTime and current time is after endTime
   // Note: Dates from backend are in UTC (Z timezone), JavaScript Date automatically converts them
   const now = new Date();
+  const startTime = new Date(event.startTime);
   const endTime = event.endTime ? new Date(event.endTime) : null;
-  const isPast = endTime ? now > endTime : false;
+  const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
+  
+  // Calculate event status for display
+  const getEventStatus = () => {
+    if (!event.isActive) {
+      return { label: "Đã hủy", variant: "outline" as const, icon: XCircle };
+    }
+    
+    // Check if registration hasn't opened yet
+    if (visibleFrom && now < visibleFrom) {
+      return { label: "Chưa mở đăng ký", variant: "outline" as const, icon: Clock };
+    }
+    
+    // Check if event hasn't started yet (but registration is open)
+    if (now < startTime) {
+      return { label: "Sắp diễn ra", variant: "default" as const, icon: CheckCircle2 };
+    }
+    
+    // Check if event is currently happening
+    if (endTime && now >= startTime && now < endTime) {
+      return { label: "Đang diễn ra", variant: "default" as const, icon: CheckCircle2 };
+    }
+    
+    // Check if event has ended
+    if (endTime && now >= endTime) {
+      return { label: "Đã kết thúc", variant: "outline" as const, icon: XCircle };
+    }
+    
+    // Fallback: event is happening (no end time specified)
+    return { label: "Đang diễn ra", variant: "default" as const, icon: CheckCircle2 };
+  };
+  
+  const eventStatus = getEventStatus();
+  
+  // Check registration status
+  const isRegistrationOpen = (() => {
+    if (!event.isActive) return false;
+    if (event.approvalStatus && event.approvalStatus !== 'APPROVED') return false;
+    if (visibleFrom && now < visibleFrom) return false;
+    const oneHourBeforeStart = new Date(startTime.getTime() - 60 * 60 * 1000);
+    if (now >= oneHourBeforeStart) return false;
+    if (event.capacity && currentAttendees >= event.capacity) return false;
+    return true;
+  })();
   
   // Check if "Make Public" button should be disabled
   const canMakePublic = (() => {
@@ -471,7 +546,7 @@ const EventDetailManagement = () => {
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={() => navigate(`/club-leader/${clubId}/events`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Quay lại
@@ -983,7 +1058,7 @@ const EventDetailManagement = () => {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-sm font-medium">
                           <Clock className="h-4 w-4 text-muted-foreground" />
-                          Hiển thị từ
+                          Ngày mở đăng ký
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {format(new Date(event.visibleFrom), "dd/MM/yyyy HH:mm", { locale: vi })}
@@ -1159,7 +1234,7 @@ const EventDetailManagement = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {participants.map((participant, index) => (
+                          {participants.map((participant: any, index: number) => (
                             <TableRow key={participant.id}>
                               <TableCell>{index + 1}</TableCell>
                               <TableCell className="font-medium">
@@ -1204,20 +1279,55 @@ const EventDetailManagement = () => {
               <div className="space-y-4">
                 <div>
                   <div className="text-sm text-muted-foreground mb-2">Trạng thái sự kiện</div>
-                  {isPast ? (
-                    <Badge variant="outline" className="w-full justify-center">
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Đã kết thúc
-                    </Badge>
-                  ) : event.isActive ? (
+                  <Badge 
+                    variant={eventStatus.variant} 
+                    className={`w-full justify-center ${
+                      eventStatus.variant === 'default' 
+                        ? 'bg-primary/20 text-primary border-primary/30' 
+                        : ''
+                    }`}
+                  >
+                    <eventStatus.icon className="h-4 w-4 mr-2" />
+                    {eventStatus.label}
+                  </Badge>
+                </div>
+                <Separator />
+                <div>
+                  <div className="text-sm text-muted-foreground mb-2">Trạng thái duyệt</div>
+                  {event.approvalStatus === 'APPROVED' ? (
                     <Badge className="bg-success/20 text-success border-success/30 w-full justify-center">
                       <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Đang hoạt động
+                      Đã duyệt
+                    </Badge>
+                  ) : event.approvalStatus === 'REJECTED' ? (
+                    <Badge variant="outline" className="w-full justify-center border-destructive text-destructive">
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Đã từ chối
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 w-full justify-center">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Chờ duyệt
+                    </Badge>
+                  )}
+                </div>
+                <Separator />
+                <div>
+                  <div className="text-sm text-muted-foreground mb-2">Trạng thái đăng ký</div>
+                  {isRegistrationOpen ? (
+                    <Badge className="bg-success/20 text-success border-success/30 w-full justify-center">
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Đang mở đăng ký
+                    </Badge>
+                  ) : visibleFrom && now < visibleFrom ? (
+                    <Badge variant="outline" className="w-full justify-center">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Chưa mở đăng ký
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="w-full justify-center">
                       <XCircle className="h-4 w-4 mr-2" />
-                      Đã tắt
+                      Đã đóng đăng ký
                     </Badge>
                   )}
                 </div>
@@ -1301,7 +1411,7 @@ const EventDetailManagement = () => {
                 ) : (
                   <>
                     <Globe className="h-4 w-4 mr-2" />
-                    Công khai sự kiện
+                    Mở đăng ký 
                   </>
                 )}
               </Button>

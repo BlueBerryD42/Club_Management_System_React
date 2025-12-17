@@ -150,18 +150,20 @@ const Events = () => {
 
   const isRegistrationOpen = (event: Event) => {
     if (!event.isActive) return false;
+    
+    // Event must be approved for registration to be open (matching backend logic)
+    if (event.approvalStatus && event.approvalStatus !== 'APPROVED') return false;
+    
     const now = new Date();
     const startTime = new Date(event.startTime);
     const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
     
-    // Check if event has started
-    if (now >= startTime) return false;
+    // Event is hidden if current time is before visibleFrom
+    if (visibleFrom && now < visibleFrom) return false;
     
-    // Registration is open from visibleFrom until startTime
-    // If visibleFrom is null, registration is open (as long as event hasn't started)
-    if (visibleFrom && now < visibleFrom) {
-      return false;
-    }
+    // Registration closes 1 hour before event starts (matching backend logic)
+    const oneHourBeforeStart = new Date(startTime.getTime() - 60 * 60 * 1000);
+    if (now >= oneHourBeforeStart) return false;
     
     // Check capacity (only if capacity is set, not null/unlimited)
     if (event.capacity != null) {
@@ -304,6 +306,11 @@ const Events = () => {
                   const attendees = event._count?.tickets || 0;
                   const location = getEventLocation(event);
                   
+                  // Check if registration is before visibleFrom
+                  const now = new Date();
+                  const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
+                  const isBeforeVisibleFrom = visibleFrom && now < visibleFrom;
+                  
                   return (
                     <Card 
                       key={event.id} 
@@ -421,6 +428,8 @@ const Events = () => {
                               ? event.pricingType === "PAID" 
                                 ? `Đăng ký - ${event.price?.toLocaleString('vi-VN')} VNĐ`
                                 : "Đăng ký tham gia"
+                              : isBeforeVisibleFrom
+                              ? "Chưa mở đăng ký"
                               : "Đã đóng đăng ký"}
                           </Button>
                         )}
