@@ -22,6 +22,68 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { formatVND } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Import event locations data
+const eventLocationsData = {
+  university: "Đại học FPT",
+  campuses: [
+    {
+      campus: "TP. Hồ Chí Minh",
+      locations: [
+        { id: "HCM-AUD-01", locationName: "Hội trường lớn", capacity: 600 },
+        { id: "HCM-SEM-01", locationName: "Phòng hội thảo lớn A", capacity: 650 },
+        { id: "HCM-SEM-02", locationName: "Phòng hội thảo lớn B", capacity: 650 },
+        { id: "HCM-MP-01", locationName: "Phòng đa năng", capacity: 120 },
+        { id: "HCM-CLS-01", locationName: "Phòng học tiêu chuẩn", capacity: 30 },
+        { id: "HCM-OUT-01", locationName: "Khu vực ngoài trời trong khuôn viên", capacity: 3000 }
+      ]
+    },
+    {
+      campus: "Hà Nội (Hòa Lạc)",
+      locations: [
+        { id: "HN-AUD-01", locationName: "Hội trường lớn", capacity: 1000 },
+        { id: "HN-SEM-01", locationName: "Phòng hội thảo lớn", capacity: 500 },
+        { id: "HN-MP-01", locationName: "Phòng đa năng", capacity: 200 },
+        { id: "HN-CLS-01", locationName: "Phòng học tiêu chuẩn", capacity: 40 },
+        { id: "HN-OUT-01", locationName: "Quảng trường – khu ngoài trời", capacity: 5000 }
+      ]
+    },
+    {
+      campus: "Đà Nẵng",
+      locations: [
+        { id: "DN-AUD-01", locationName: "Hội trường", capacity: 500 },
+        { id: "DN-SEM-01", locationName: "Phòng hội thảo", capacity: 300 },
+        { id: "DN-MP-01", locationName: "Phòng đa năng", capacity: 150 },
+        { id: "DN-CLS-01", locationName: "Phòng học tiêu chuẩn", capacity: 35 },
+        { id: "DN-OUT-01", locationName: "Sân sự kiện ngoài trời", capacity: 2000 }
+      ]
+    },
+    {
+      campus: "Cần Thơ",
+      locations: [
+        { id: "CT-AUD-01", locationName: "Hội trường", capacity: 400 },
+        { id: "CT-SEM-01", locationName: "Phòng hội thảo", capacity: 250 },
+        { id: "CT-MP-01", locationName: "Phòng đa năng", capacity: 120 },
+        { id: "CT-CLS-01", locationName: "Phòng học tiêu chuẩn", capacity: 30 },
+        { id: "CT-OUT-01", locationName: "Khu vực ngoài trời", capacity: 1500 }
+      ]
+    },
+    {
+      campus: "Quy Nhơn",
+      locations: [
+        { id: "QN-AUD-01", locationName: "Hội trường", capacity: 350 },
+        { id: "QN-SEM-01", locationName: "Phòng hội thảo", capacity: 200 },
+        { id: "QN-MP-01", locationName: "Phòng đa năng", capacity: 100 },
+        { id: "QN-CLS-01", locationName: "Phòng học tiêu chuẩn", capacity: 30 },
+        { id: "QN-OUT-01", locationName: "Khu sinh hoạt ngoài trời", capacity: 1200 }
+      ]
+    }
+  ]
+};
 
 interface Event {
   id: string;
@@ -114,6 +176,17 @@ export default function EventManagement() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [priceDisplay, setPriceDisplay] = useState("");
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [selectedLocationCapacity, setSelectedLocationCapacity] = useState<number | null>(null);
+  
+  // Flatten all locations from all campuses
+  const allLocations = eventLocationsData.campuses.flatMap((campus: any) =>
+    campus.locations.map((loc: any) => ({
+      ...loc,
+      campus: campus.campus,
+      displayName: `${loc.locationName} (${campus.campus}) - Sức chứa: ${loc.capacity.toLocaleString('vi-VN')} người`
+    }))
+  );
 
   // Fetch club members for staff selection
   const { data: clubMembersData, isLoading: membersLoading } = useQuery({
@@ -146,6 +219,29 @@ export default function EventManagement() {
       staffIds: [],
     },
   });
+
+  // Check location when form value changes
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "location" && value.location) {
+        // Try to match with predefined locations
+        const matched = allLocations.find((loc: any) => 
+          loc.locationName === value.location || 
+          value.location?.trim() === loc.locationName.trim()
+        );
+        if (matched) {
+          setSelectedLocationCapacity(matched.capacity);
+        } else {
+          setSelectedLocationCapacity(null);
+        }
+      }
+      // Reset location capacity when switching to ONLINE format
+      if (name === "format" && value.format === "ONLINE") {
+        setSelectedLocationCapacity(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, allLocations]);
 
   useEffect(() => {
     if (clubId) {
@@ -615,15 +711,116 @@ export default function EventManagement() {
                     <FormField
                       control={form.control}
                       name="location"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Địa điểm <span className="text-destructive">*</span></FormLabel>
-                          <FormControl>
-                            <Input placeholder="VD: Hội trường A" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const currentLocation = field.value || "";
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel>Địa điểm <span className="text-destructive">*</span></FormLabel>
+                            <div className="flex gap-2">
+                              <FormControl className="flex-1">
+                                <Input 
+                                  placeholder="VD: Phòng NVH.618 hoặc chọn từ danh sách..." 
+                                  value={currentLocation}
+                                  onChange={(e) => {
+                                    field.onChange(e.target.value);
+                                    // Check if it matches a predefined location
+                                    const matched = allLocations.find((loc: any) => 
+                                      loc.locationName === e.target.value || 
+                                      e.target.value.trim() === loc.locationName.trim()
+                                    );
+                                    if (matched) {
+                                      setSelectedLocationCapacity(matched.capacity);
+                                    } else {
+                                      setSelectedLocationCapacity(null);
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <Popover open={locationOpen} onOpenChange={setLocationOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="shrink-0"
+                                  >
+                                    <ChevronsUpDown className="h-4 w-4" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent 
+                                  className="w-[400px] p-0" 
+                                  align="start"
+                                >
+                                  <Command className="max-h-[400px] flex flex-col">
+                                    <CommandInput placeholder="Tìm kiếm địa điểm..." />
+                                    <CommandList 
+                                      className="max-h-[300px] overflow-y-auto overscroll-contain"
+                                      style={{ scrollBehavior: 'smooth' }}
+                                      onWheel={(e) => {
+                                        // Check if we're at the boundaries of the command list
+                                        const commandList = e.currentTarget as HTMLElement;
+                                        
+                                        // Small delay to check scroll position after native scroll
+                                        setTimeout(() => {
+                                          const isAtTop = commandList.scrollTop <= 1;
+                                          const isAtBottom = commandList.scrollTop + commandList.clientHeight >= commandList.scrollHeight - 1;
+                                          
+                                          // Only pass scroll to dialog if at boundary and trying to scroll past
+                                          if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
+                                            const dialog = document.querySelector('[role="dialog"]');
+                                            if (dialog) {
+                                              const scrollable = dialog.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement || 
+                                                                dialog.querySelector('.overflow-y-auto') as HTMLElement ||
+                                                                dialog as HTMLElement;
+                                              if (scrollable && scrollable.scrollHeight > scrollable.clientHeight) {
+                                                scrollable.scrollBy({ top: e.deltaY, behavior: 'auto' });
+                                              }
+                                            }
+                                          }
+                                        }, 0);
+                                        // Let the command list scroll normally first
+                                      }}
+                                    >
+                                      <CommandEmpty>Không tìm thấy địa điểm.</CommandEmpty>
+                                      {eventLocationsData.campuses.map((campus: any) => (
+                                        <CommandGroup key={campus.campus} heading={campus.campus}>
+                                          {campus.locations.map((location: any) => (
+                                            <CommandItem
+                                              key={location.id}
+                                              value={`${location.locationName} ${campus.campus}`}
+                                              onSelect={() => {
+                                                field.onChange(location.locationName);
+                                                setSelectedLocationCapacity(location.capacity);
+                                                setLocationOpen(false);
+                                              }}
+                                            >
+                                              <Check
+                                                className={cn(
+                                                  "mr-2 h-4 w-4",
+                                                  field.value === location.locationName
+                                                    ? "opacity-100"
+                                                    : "opacity-0"
+                                                )}
+                                              />
+                                              <div className="flex-1">
+                                                <div className="font-medium">{location.locationName}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                  Sức chứa: {location.capacity.toLocaleString('vi-VN')} người
+                                                </div>
+                                              </div>
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      ))}
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                   ) : (
                     <FormField
@@ -643,31 +840,63 @@ export default function EventManagement() {
                   <FormField
                     control={form.control}
                     name="capacity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Số người tối đa <span className="text-muted-foreground text-xs">(Để trống = không giới hạn)</span></FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min={1}
-                            {...field}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '') {
-                                field.onChange(undefined);
-                              } else {
-                                const numValue = parseInt(value);
-                                if (!isNaN(numValue) && numValue > 0) {
-                                  field.onChange(numValue);
-                                }
-                              }
-                            }}
-                            value={field.value || ''}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const capacityValue = field.value;
+                      const exceedsCapacity = selectedLocationCapacity !== null && 
+                                              capacityValue !== undefined && 
+                                              capacityValue > selectedLocationCapacity;
+                      
+                      return (
+                        <FormItem>
+                          <FormLabel>Số người tối đa <span className="text-muted-foreground text-xs">(Để trống = không giới hạn)</span></FormLabel>
+                          <FormControl>
+                            <div className="space-y-2">
+                              <Input 
+                                type="number" 
+                                min={1}
+                                value={field.value || ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (value === '') {
+                                    field.onChange(undefined);
+                                  } else {
+                                    const numValue = parseInt(value);
+                                    if (!isNaN(numValue) && numValue > 0) {
+                                      field.onChange(numValue);
+                                      
+                                      // Show warning if exceeds capacity
+                                      if (selectedLocationCapacity !== null && numValue > selectedLocationCapacity) {
+                                        toast({
+                                          title: "Cảnh báo sức chứa",
+                                          description: `Số người tối đa (${numValue.toLocaleString('vi-VN')}) vượt quá sức chứa của địa điểm đã chọn (${selectedLocationCapacity.toLocaleString('vi-VN')} người).`,
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }
+                                  }
+                                }}
+                                onBlur={field.onBlur}
+                                className={exceedsCapacity ? "border-destructive" : ""}
+                              />
+                              {exceedsCapacity && (
+                                <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-2 rounded-md">
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <span>
+                                    Số người tối đa ({capacityValue?.toLocaleString('vi-VN')}) vượt quá sức chứa của địa điểm ({selectedLocationCapacity.toLocaleString('vi-VN')} người)
+                                  </span>
+                                </div>
+                              )}
+                              {selectedLocationCapacity !== null && !exceedsCapacity && capacityValue && (
+                                <div className="text-xs text-muted-foreground">
+                                  Sức chứa địa điểm: {selectedLocationCapacity.toLocaleString('vi-VN')} người
+                                </div>
+                              )}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
@@ -680,7 +909,7 @@ export default function EventManagement() {
                         <FormControl>
                           <Input 
                             type="datetime-local" 
-                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:invert dark:[&::-webkit-calendar-picker-indicator]:invert-0"
+                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
                             {...field}
                           />
                         </FormControl>
@@ -697,7 +926,7 @@ export default function EventManagement() {
                         <FormControl>
                           <Input 
                             type="datetime-local" 
-                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:invert dark:[&::-webkit-calendar-picker-indicator]:invert-0"
+                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
                             {...field}
                           />
                         </FormControl>
@@ -714,7 +943,7 @@ export default function EventManagement() {
                         <FormControl>
                           <Input 
                             type="datetime-local" 
-                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:invert dark:[&::-webkit-calendar-picker-indicator]:invert-0"
+                            className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
                             {...field}
                           />
                         </FormControl>
@@ -731,7 +960,7 @@ export default function EventManagement() {
                   render={({ field }) => (
                     <FormItem>
                       <div className="mb-4">
-                        <FormLabel className="text-base">Phân công nhân viên</FormLabel>
+                        <FormLabel className="text-base">Phân công thành viên</FormLabel>
                         <FormDescription>
                           Chọn thành viên CLB để làm nhân viên quản lý sự kiện (có thể chọn nhiều)
                         </FormDescription>
