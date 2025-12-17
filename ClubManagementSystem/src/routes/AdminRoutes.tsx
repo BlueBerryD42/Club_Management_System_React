@@ -7,9 +7,6 @@ import ClubListPage from '@/pages/admin/clubs/ClubListPage';
 import CreateClubPage from '@/pages/admin/clubs/CreateClubPage';
 import ClubDetailPage from '@/pages/admin/clubs/ClubDetailPage';
 import UserListPage from '@/pages/admin/users/UserListPage';
-import RecruitmentListPage from '@/pages/admin/recruitment/RecruitmentListPage';
-import RecruitmentDetailPage from '@/pages/admin/recruitment/RecruitmentDetailPage';
-import ImportRecruitmentPage from '@/pages/admin/recruitment/ImportRecruitmentPage';
 import FundRequestListPage from '@/pages/admin/finance/FundRequestListPage';
 import FundRequestDetailPage from '@/pages/admin/finance/FundRequestDetailPage';
 import AuditLogPage from '@/pages/admin/audit/AuditLogPage';
@@ -27,9 +24,6 @@ const AdminRoutes: RouteObject = {
     { path: 'clubs/create', element: <CreateClubPage /> },
     { path: 'clubs/:id', element: <ClubDetailPage /> },
     { path: 'users', element: <UserListPage /> },
-    { path: 'recruitment', element: <RecruitmentListPage /> },
-    { path: 'recruitment/import', element: <ImportRecruitmentPage /> },
-    { path: 'recruitment/:id', element: <RecruitmentDetailPage /> },
     { path: 'finance/requests', element: <FundRequestListPage /> },
     { path: 'finance/requests/:id', element: <FundRequestDetailPage /> },
     { path: 'audit', element: <AuditLogPage /> },

@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router-dom';
 import Index from '../pages/HomePage';
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
+import GoogleCallbackPage from '@/pages/auth/GoogleCallbackPage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
 import Clubs from '@/pages/mainlayout/Clubs';
 import ClubDetail from '@/pages/mainlayout/ClubDetail';
@@ -42,6 +43,10 @@ const PublicRoutes: RouteObject[] = [
     {
         path: '/register',
         element: <RegisterPage />,
+    },
+    {
+        path: '/auth/callback',
+        element: <GoogleCallbackPage />,
     },
     {
         path: '/unauthorized',

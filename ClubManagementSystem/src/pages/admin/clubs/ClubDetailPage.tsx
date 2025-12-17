@@ -30,45 +30,57 @@ const ClubDetailPage = () => {
         enabled: !!id
     });
 
-    // Fetch club members
+    // Fetch club members - use actual club ID from clubData, not slug
     const { data: membersData } = useQuery({
-        queryKey: ['club-members', id],
+        queryKey: ['club-members', clubData?.data?.id],
         queryFn: async () => {
-            const response = await clubApi.getMembers(id!);
+            const response = await clubApi.getMembers(clubData!.data.id);
             return response.data;
         },
-        enabled: !!id
+        enabled: !!clubData?.data?.id
     });
 
     // Map backend data to frontend format
-    const club = clubData?.data ? {
-        id: clubData.data.id,
-        name: clubData.data.name,
-        category: clubData.data.description?.substring(0, 50) || 'Chưa phân loại',
-        type: 'free',
-        status: 'active',
-        description: clubData.data.description || '',
-        leader: {
-            id: clubData.data.leader?.id || '',
-            name: clubData.data.leader?.fullName || 'Chưa có',
-            email: clubData.data.leader?.email || '',
-            avatar: clubData.data.leader?.avatarUrl || ''
-        },
-        treasurer: {
-            id: '',
-            name: 'Chưa có',
-            email: '',
-            avatar: ''
-        },
-        membersCount: clubData.data._count?.memberships || 0,
-        members: membersData?.data?.map((m: any) => ({
+    const club = clubData?.data ? (() => {
+        const members = membersData?.data?.map((m: any) => ({
             id: m.user?.id || m.userId,
             name: m.user?.fullName || m.user?.email || 'Unknown',
             email: m.user?.email || '',
             role: m.role?.toLowerCase() || 'member',
             status: 'active'
-        })) || []
-    } : null;
+        })) || [];
+
+        // Find treasurer from members list
+        const treasurerMember = membersData?.data?.find((m: any) => m.role === 'TREASURER');
+
+        return {
+            id: clubData.data.id,
+            name: clubData.data.name,
+            category: clubData.data.description?.substring(0, 50) || 'Chưa phân loại',
+            type: 'free',
+            status: 'active',
+            description: clubData.data.description || '',
+            leader: {
+                id: clubData.data.leader?.id || '',
+                name: clubData.data.leader?.fullName || 'Chưa có',
+                email: clubData.data.leader?.email || '',
+                avatar: clubData.data.leader?.avatarUrl || ''
+            },
+            treasurer: treasurerMember ? {
+                id: treasurerMember.user?.id || '',
+                name: treasurerMember.user?.fullName || treasurerMember.user?.email || 'Chưa có',
+                email: treasurerMember.user?.email || '',
+                avatar: treasurerMember.user?.avatarUrl || ''
+            } : {
+                id: '',
+                name: 'Chưa có',
+                email: '',
+                avatar: ''
+            },
+            membersCount: clubData.data._count?.memberships || 0,
+            members
+        };
+    })() : null;
 
     // Update form when data loads
     if (club && !editForm.name) {
@@ -217,9 +229,9 @@ const ClubDetailPage = () => {
                                     <TableCell className="font-medium">{member.name}</TableCell>
                                     <TableCell>{member.email}</TableCell>
                                     <TableCell>
-                                        {member.role === 'leader' && <Badge className="bg-yellow-500"><Crown className="w-3 h-3 mr-1"/> Leader</Badge>}
-                                        {member.role === 'treasurer' && <Badge className="bg-green-500"><Wallet className="w-3 h-3 mr-1"/> Treasurer</Badge>}
-                                        {member.role === 'member' && <Badge variant="outline"><User className="w-3 h-3 mr-1"/> Member</Badge>}
+                                        {member.role === 'leader' && <Badge className="bg-yellow-500"><Crown className="w-3 h-3 mr-1"/> Chủ nhiệm</Badge>}
+                                        {member.role === 'treasurer' && <Badge className="bg-green-500"><Wallet className="w-3 h-3 mr-1"/> Thủ quỹ</Badge>}
+                                        {member.role === 'member' && <Badge variant="outline"><User className="w-3 h-3 mr-1"/> Thành viên</Badge>}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
