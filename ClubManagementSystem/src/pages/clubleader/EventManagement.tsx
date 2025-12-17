@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Layout } from "@/components/layout/Layout";
@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Calendar, MapPin, Users, Loader2, Link as LinkIcon } from "lucide-react";
+import { ArrowLeft, Plus, Calendar, MapPin, Users, Loader2, Link as LinkIcon, Trash2, DollarSign } from "lucide-react";
 import { eventService, type Event as BackendEvent } from "@/services/event.service";
 import { clubApi } from "@/services/club.service";
 import { useQuery } from "@tanstack/react-query";
@@ -104,6 +104,13 @@ interface Event {
 }
 
 // Zod Schema for Event Form
+const fundRequestItemSchema = z.object({
+  name: z.string().min(1, "Tên hạng mục không được để trống"),
+  amount: z.number().min(1, "Số tiền phải lớn hơn 0"),
+  description: z.string().optional().or(z.literal("")),
+  _tempId: z.string().optional(), // Allow temp ID for tracking
+});
+
 const eventFormSchema = z.object({
   title: z.string().min(3, "Tên sự kiện phải có ít nhất 3 ký tự").max(200, "Tên sự kiện không được vượt quá 200 ký tự"),
   description: z.string().optional(),
@@ -118,6 +125,11 @@ const eventFormSchema = z.object({
   capacity: z.number().min(1, "Số người tối đa phải lớn hơn 0").optional(),
   visibleFrom: z.string().min(1, "Vui lòng chọn thời gian hiển thị"),
   staffIds: z.array(z.string()).optional(),
+  fundRequest: z.object({
+    title: z.string().min(3, "Tiêu đề yêu cầu quỹ phải có ít nhất 3 ký tự"),
+    description: z.string().min(10, "Mô tả yêu cầu quỹ phải có ít nhất 10 ký tự"),
+    items: z.array(fundRequestItemSchema).min(1, "Phải có ít nhất 1 hạng mục quỹ"),
+  }),
 }).refine((data) => {
   if (data.pricingType === "PAID") {
     return data.price !== undefined && data.price > 0;
@@ -166,6 +178,34 @@ const eventFormSchema = z.object({
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
+// Component to display total fund amount reactively
+function FundRequestTotalDisplay({ form }: { form: ReturnType<typeof useForm<EventFormValues>> }) {
+  const items = useWatch({
+    control: form.control,
+    name: "fundRequest.items",
+    defaultValue: [],
+  }) || [];
+  
+  const totalAmount = items.reduce((sum: number, item: any) => {
+    if (!item) return sum;
+    const amount = typeof item.amount === 'number' ? item.amount : (parseInt(String(item.amount || 0)) || 0);
+    return sum + amount;
+  }, 0);
+  
+  if (items.length === 0) return null;
+  
+  return (
+    <div className="mb-4 p-4 bg-muted rounded-md">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold">Tổng số tiền:</span>
+        <span className="text-lg font-bold text-primary">
+          {totalAmount > 0 ? formatVND(totalAmount) : "0 VNĐ"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function EventManagement() {
   const { clubId } = useParams();
   const navigate = useNavigate();
@@ -178,6 +218,11 @@ export default function EventManagement() {
   const [priceDisplay, setPriceDisplay] = useState("");
   const [locationOpen, setLocationOpen] = useState(false);
   const [selectedLocationCapacity, setSelectedLocationCapacity] = useState<number | null>(null);
+  const [hasShownCapacityToast, setHasShownCapacityToast] = useState(false);
+  const [currentLocationForToast, setCurrentLocationForToast] = useState<string | null>(null);
+  const [fundRequestItemAmounts, setFundRequestItemAmounts] = useState<Record<number, string>>({});
+  const previousItemsRef = useRef<any[]>([]);
+  const isAddingItemRef = useRef(false);
   
   // Flatten all locations from all campuses
   const allLocations = eventLocationsData.campuses.flatMap((campus: any) =>
@@ -217,6 +262,11 @@ export default function EventManagement() {
       format: "OFFLINE",
       visibleFrom: "",
       staffIds: [],
+      fundRequest: {
+        title: "",
+        description: "",
+        items: [],
+      },
     },
   });
 
@@ -242,6 +292,7 @@ export default function EventManagement() {
     });
     return () => subscription.unsubscribe();
   }, [form, allLocations]);
+
 
   useEffect(() => {
     if (clubId) {
@@ -298,9 +349,18 @@ export default function EventManagement() {
       format: "OFFLINE",
       visibleFrom: "",
       staffIds: [],
+      fundRequest: {
+        title: "",
+        description: "",
+        items: [],
+      },
     });
     setPriceDisplay("");
     setEditingEvent(null);
+    setHasShownCapacityToast(false);
+    setCurrentLocationForToast(null);
+    setSelectedLocationCapacity(null);
+    setFundRequestItemAmounts({});
   };
 
   const handleCreate = async (data: EventFormValues) => {
@@ -325,6 +385,15 @@ export default function EventManagement() {
         onlineLink: data.format === "ONLINE" ? data.onlineLink : undefined,
         visibleFrom: data.visibleFrom ? new Date(data.visibleFrom).toISOString() : undefined,
         staffIds: data.staffIds && data.staffIds.length > 0 ? data.staffIds : undefined,
+        fundRequest: {
+          title: data.fundRequest.title,
+          description: data.fundRequest.description,
+          items: data.fundRequest.items.map(item => ({
+            name: item.name,
+            amount: item.amount,
+            description: item.description || undefined,
+          })),
+        },
       };
 
       await eventService.create(clubId, payload);
@@ -388,23 +457,33 @@ export default function EventManagement() {
     const now = new Date();
     const startTime = new Date(event.startTime);
     const endTime = event.endTime ? new Date(event.endTime) : null;
+    const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
 
     if (!event.isActive) {
       return <Badge className="bg-destructive/20 text-destructive">Đã hủy</Badge>;
     }
 
+    // Check if registration hasn't opened yet
+    if (visibleFrom && now < visibleFrom) {
+      return <Badge className="bg-amber-500/20 text-amber-600">Chưa mở đăng ký</Badge>;
+    }
+
+    // Check if event hasn't started yet (but registration is open)
     if (now < startTime) {
       return <Badge className="bg-primary/20 text-primary">Sắp diễn ra</Badge>;
     }
 
+    // Check if event is currently happening
     if (endTime && now >= startTime && now < endTime) {
       return <Badge className="bg-success/20 text-success">Đang diễn ra</Badge>;
     }
 
+    // Check if event has ended
     if (endTime && now >= endTime) {
       return <Badge variant="outline">Đã kết thúc</Badge>;
     }
 
+    // Fallback: event is happening (no end time specified)
     return <Badge variant="outline">Đang diễn ra</Badge>;
   };
 
@@ -731,8 +810,17 @@ export default function EventManagement() {
                                     );
                                     if (matched) {
                                       setSelectedLocationCapacity(matched.capacity);
+                                      // Auto-populate capacity field with location capacity
+                                      form.setValue("capacity", matched.capacity);
+                                      // Reset toast tracking when location changes
+                                      if (currentLocationForToast !== matched.locationName) {
+                                        setHasShownCapacityToast(false);
+                                        setCurrentLocationForToast(matched.locationName);
+                                      }
                                     } else {
                                       setSelectedLocationCapacity(null);
+                                      setHasShownCapacityToast(false);
+                                      setCurrentLocationForToast(null);
                                     }
                                   }}
                                 />
@@ -750,35 +838,18 @@ export default function EventManagement() {
                                 <PopoverContent 
                                   className="w-[400px] p-0" 
                                   align="start"
+                                  onWheel={(e) => {
+                                    // Prevent scroll from bubbling to parent dialog
+                                    e.stopPropagation();
+                                  }}
                                 >
-                                  <Command className="max-h-[400px] flex flex-col">
-                                    <CommandInput placeholder="Tìm kiếm địa điểm..." />
+                                  <Command className="h-[400px] flex flex-col">
+                                    <CommandInput placeholder="Tìm kiếm địa điểm..." className="border-b" />
                                     <CommandList 
-                                      className="max-h-[300px] overflow-y-auto overscroll-contain"
-                                      style={{ scrollBehavior: 'smooth' }}
+                                      className="flex-1 overflow-y-auto overflow-x-hidden min-h-0"
                                       onWheel={(e) => {
-                                        // Check if we're at the boundaries of the command list
-                                        const commandList = e.currentTarget as HTMLElement;
-                                        
-                                        // Small delay to check scroll position after native scroll
-                                        setTimeout(() => {
-                                          const isAtTop = commandList.scrollTop <= 1;
-                                          const isAtBottom = commandList.scrollTop + commandList.clientHeight >= commandList.scrollHeight - 1;
-                                          
-                                          // Only pass scroll to dialog if at boundary and trying to scroll past
-                                          if ((isAtTop && e.deltaY < 0) || (isAtBottom && e.deltaY > 0)) {
-                                            const dialog = document.querySelector('[role="dialog"]');
-                                            if (dialog) {
-                                              const scrollable = dialog.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement || 
-                                                                dialog.querySelector('.overflow-y-auto') as HTMLElement ||
-                                                                dialog as HTMLElement;
-                                              if (scrollable && scrollable.scrollHeight > scrollable.clientHeight) {
-                                                scrollable.scrollBy({ top: e.deltaY, behavior: 'auto' });
-                                              }
-                                            }
-                                          }
-                                        }, 0);
-                                        // Let the command list scroll normally first
+                                        // Stop propagation to prevent dialog scrolling when scrolling the list
+                                        e.stopPropagation();
                                       }}
                                     >
                                       <CommandEmpty>Không tìm thấy địa điểm.</CommandEmpty>
@@ -791,6 +862,13 @@ export default function EventManagement() {
                                               onSelect={() => {
                                                 field.onChange(location.locationName);
                                                 setSelectedLocationCapacity(location.capacity);
+                                                // Auto-populate capacity field with location capacity
+                                                form.setValue("capacity", location.capacity);
+                                                // Reset toast tracking when location changes
+                                                if (currentLocationForToast !== location.locationName) {
+                                                  setHasShownCapacityToast(false);
+                                                  setCurrentLocationForToast(location.locationName);
+                                                }
                                                 setLocationOpen(false);
                                               }}
                                             >
@@ -864,25 +942,26 @@ export default function EventManagement() {
                                     if (!isNaN(numValue) && numValue > 0) {
                                       field.onChange(numValue);
                                       
-                                      // Show warning if exceeds capacity
-                                      if (selectedLocationCapacity !== null && numValue > selectedLocationCapacity) {
+                                      // Show toast warning only once per location when capacity exceeds
+                                      if (selectedLocationCapacity !== null && numValue > selectedLocationCapacity && !hasShownCapacityToast) {
                                         toast({
-                                          title: "Cảnh báo sức chứa",
-                                          description: `Số người tối đa (${numValue.toLocaleString('vi-VN')}) vượt quá sức chứa của địa điểm đã chọn (${selectedLocationCapacity.toLocaleString('vi-VN')} người).`,
-                                          variant: "destructive",
+                                          title: "Lưu ý về sức chứa",
+                                          description: `Số người tối đa (${numValue.toLocaleString('vi-VN')}) có thể vượt quá sức chứa của địa điểm đã chọn (${selectedLocationCapacity.toLocaleString('vi-VN')} người).`,
+                                          variant: "default",
                                         });
+                                        setHasShownCapacityToast(true);
                                       }
                                     }
                                   }
                                 }}
                                 onBlur={field.onBlur}
-                                className={exceedsCapacity ? "border-destructive" : ""}
+                                className={exceedsCapacity ? "border-amber-500" : ""}
                               />
                               {exceedsCapacity && (
-                                <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-2 rounded-md">
+                                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/30 p-2 rounded-md border border-amber-200 dark:border-amber-800">
                                   <AlertTriangle className="h-4 w-4" />
                                   <span>
-                                    Số người tối đa ({capacityValue?.toLocaleString('vi-VN')}) vượt quá sức chứa của địa điểm ({selectedLocationCapacity.toLocaleString('vi-VN')} người)
+                                    Lưu ý: Số người tối đa ({capacityValue?.toLocaleString('vi-VN')}) có thể vượt quá sức chứa của địa điểm ({selectedLocationCapacity.toLocaleString('vi-VN')} người)
                                   </span>
                                 </div>
                               )}
@@ -905,12 +984,17 @@ export default function EventManagement() {
                     name="visibleFrom"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Hiển thị từ <span className="text-destructive">*</span></FormLabel>
+                        <FormLabel>Ngày mở đăng ký <span className="text-destructive">*</span></FormLabel>
                         <FormControl>
                           <Input 
                             type="datetime-local" 
                             className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
                             {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              // Trigger validation for startTime when visibleFrom changes
+                              form.trigger("startTime");
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -928,6 +1012,12 @@ export default function EventManagement() {
                             type="datetime-local" 
                             className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
                             {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              // Trigger validation for visibleFrom and endTime when startTime changes
+                              form.trigger("visibleFrom");
+                              form.trigger("endTime");
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -945,6 +1035,11 @@ export default function EventManagement() {
                             type="datetime-local" 
                             className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
                             {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              // Trigger validation for startTime when endTime changes
+                              form.trigger("startTime");
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1037,6 +1132,318 @@ export default function EventManagement() {
                     </FormItem>
                   )}
                 />
+
+                {/* Fund Request Section */}
+                <div className="border-t pt-6 mt-6">
+                  <h3 className="text-lg font-semibold mb-4">Yêu cầu quỹ</h3>
+                  
+                  <FormField
+                    control={form.control}
+                    name="fundRequest.title"
+                    render={({ field }) => (
+                      <FormItem className="mb-4">
+                        <FormLabel>Tiêu đề yêu cầu quỹ <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Input placeholder="VD: Yêu cầu quỹ cho Workshop React Native" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fundRequest.description"
+                    render={({ field }) => (
+                      <FormItem className="mb-4">
+                        <FormLabel>Mô tả yêu cầu quỹ <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Mô tả chi tiết về yêu cầu quỹ và lý do cần thiết..." 
+                            rows={3} 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fundRequest.items"
+                    render={({ field }) => {
+                      const items = field.value || [];
+
+                      return (
+                        <FormItem>
+                          <div className="flex items-center justify-between mb-4">
+                            <FormLabel>Hạng mục quỹ <span className="text-destructive">*</span></FormLabel>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                isAddingItemRef.current = true;
+                                
+                                // Get the absolute latest form values to ensure we have everything
+                                const currentFormItems = form.getValues("fundRequest.items") || [];
+                                
+                                // Also get from field.value as backup
+                                const fieldItems = field.value || [];
+                                
+                                // Use whichever has more items (likely the form values)
+                                const sourceItems = currentFormItems.length >= fieldItems.length ? currentFormItems : fieldItems;
+                                
+                                // Create a deep copy with ALL properties preserved
+                                const preservedItems = sourceItems.map((item: any) => {
+                                  return {
+                                    name: item?.name ?? "",
+                                    amount: typeof item?.amount === 'number' ? item.amount : (parseInt(String(item?.amount || 0)) || 0),
+                                    description: item?.description ?? "",
+                                    _tempId: (item as any)?._tempId || undefined
+                                  };
+                                });
+                                
+                                // Create new item
+                                const newItem = { 
+                                  name: "", 
+                                  amount: 0, 
+                                  description: "", 
+                                  _tempId: `item-${Date.now()}-${Math.random()}`
+                                };
+                                
+                                const newItems = [...preservedItems, newItem];
+                                
+                                // Store for recovery
+                                previousItemsRef.current = preservedItems;
+                                
+                                // ONLY use field.onChange - this is the correct way to update form fields
+                                // Using setValue can cause conflicts and state loss
+                                field.onChange(newItems);
+                                
+                                // Initialize display state
+                                const newIndex = newItems.length - 1;
+                                setFundRequestItemAmounts(prev => ({
+                                  ...prev,
+                                  [newIndex]: ""
+                                }));
+                                
+                                // Verify values are preserved after a short delay
+                                setTimeout(() => {
+                                  const verifyItems = form.getValues("fundRequest.items") || [];
+                                  // If items were lost or changed, restore them
+                                  if (verifyItems.length !== newItems.length) {
+                                    // Restore using field.onChange to maintain form connection
+                                    field.onChange(newItems);
+                                  } else {
+                                    // Check if any items lost their data
+                                    const needsRestore = verifyItems.some((item: any, idx: number) => {
+                                      const expected = preservedItems[idx];
+                                      return expected && (
+                                        (item?.name || "") !== (expected.name || "") ||
+                                        (item?.amount || 0) !== (expected.amount || 0)
+                                      );
+                                    });
+                                    if (needsRestore) {
+                                      field.onChange(newItems);
+                                    }
+                                  }
+                                  isAddingItemRef.current = false;
+                                }, 100);
+                              }}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Thêm hạng mục
+                            </Button>
+                          </div>
+                          
+                          {items.length === 0 ? (
+                            <div className="text-sm text-muted-foreground py-4 border rounded-md text-center">
+                              Chưa có hạng mục nào. Vui lòng thêm ít nhất 1 hạng mục.
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {items.map((item, index) => {
+                                // Use a stable key - prefer tempId if available, otherwise use index
+                                const itemKey = (item as any)._tempId || `item-${index}`;
+                                
+                                return (
+                                  <Card key={itemKey} className="p-4">
+                                    <div className="flex items-start justify-between mb-4">
+                                      <h4 className="font-medium">Hạng mục {index + 1}</h4>
+                                      {items.length > 1 && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            const newItems = items.filter((_, i) => i !== index);
+                                            field.onChange(newItems);
+                                            // Reindex amount displays for remaining items
+                                            setFundRequestItemAmounts(prev => {
+                                              const updated: Record<number, string> = {};
+                                              Object.keys(prev).forEach((key) => {
+                                                const oldIndex = parseInt(key);
+                                                if (oldIndex < index) {
+                                                  updated[oldIndex] = prev[oldIndex];
+                                                } else if (oldIndex > index) {
+                                                  updated[oldIndex - 1] = prev[oldIndex];
+                                                }
+                                                // Skip the removed index
+                                              });
+                                              return updated;
+                                            });
+                                          }}
+                                        >
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                      <FormField
+                                        control={form.control}
+                                        name={`fundRequest.items.${index}.name`}
+                                        render={({ field: itemField }) => (
+                                          <FormItem>
+                                            <FormLabel>Tên hạng mục <span className="text-destructive">*</span></FormLabel>
+                                            <FormControl>
+                                              <Input placeholder="VD: Thuê hội trường" {...itemField} />
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )}
+                                      />
+
+                                      <FormField
+                                        control={form.control}
+                                        name={`fundRequest.items.${index}.amount`}
+                                        render={({ field: itemField }) => {
+                                          const currentValue = itemField.value || 0;
+                                          // Use display state if available, otherwise format from form value
+                                          const displayValue = fundRequestItemAmounts[index] !== undefined 
+                                            ? fundRequestItemAmounts[index]
+                                            : (currentValue > 0 ? formatVND(currentValue) : "");
+                                          
+                                          return (
+                                            <FormItem>
+                                              <FormLabel>Số tiền (VNĐ) <span className="text-destructive">*</span></FormLabel>
+                                              <FormControl>
+                                                <div className="relative">
+                                                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                  <Input
+                                                    type="text"
+                                                    className="pl-9"
+                                                    value={displayValue}
+                                                    onChange={(e) => {
+                                                      const inputValue = e.target.value;
+                                                      
+                                                      // If user is typing formatted value, extract digits
+                                                      const rawValue = inputValue.replace(/[^\d]/g, '');
+                                                      const numValue = parseInt(rawValue) || 0;
+                                                      
+                                                      // Update form value immediately
+                                                      itemField.onChange(numValue);
+                                                      
+                                                      // Update display state - format if has value, otherwise keep what user typed (for deletion)
+                                                      if (rawValue) {
+                                                        const formatted = formatVND(numValue);
+                                                        setFundRequestItemAmounts(prev => ({
+                                                          ...prev,
+                                                          [index]: formatted
+                                                        }));
+                                                      } else if (inputValue === "") {
+                                                        // User cleared the field
+                                                        setFundRequestItemAmounts(prev => ({
+                                                          ...prev,
+                                                          [index]: ""
+                                                        }));
+                                                      }
+                                                    }}
+                                                    onFocus={(e) => {
+                                                      // When focused, show raw number for easier editing
+                                                      const rawValue = itemField.value ? itemField.value.toString() : "";
+                                                      setFundRequestItemAmounts(prev => ({
+                                                        ...prev,
+                                                        [index]: rawValue
+                                                      }));
+                                                      // Select all text for easy replacement
+                                                      setTimeout(() => e.target.select(), 0);
+                                                    }}
+                                                    onBlur={(e) => {
+                                                      // Ensure formatted on blur
+                                                      const rawValue = e.target.value.replace(/[^\d]/g, '');
+                                                      const numValue = parseInt(rawValue) || 0;
+                                                      if (numValue > 0) {
+                                                        setFundRequestItemAmounts(prev => ({
+                                                          ...prev,
+                                                          [index]: formatVND(numValue)
+                                                        }));
+                                                      } else {
+                                                        setFundRequestItemAmounts(prev => ({
+                                                          ...prev,
+                                                          [index]: ""
+                                                        }));
+                                                      }
+                                                      itemField.onBlur();
+                                                    }}
+                                                    placeholder="VD: 2.000.000"
+                                                  />
+                                                </div>
+                                              </FormControl>
+                                              <FormMessage />
+                                            </FormItem>
+                                          );
+                                        }}
+                                      />
+
+                                      <FormField
+                                        control={form.control}
+                                        name={`fundRequest.items.${index}.description`}
+                                        render={({ field: itemField }) => (
+                                          <FormItem>
+                                            <FormLabel>Mô tả</FormLabel>
+                                            <FormControl>
+                                              <Textarea 
+                                                placeholder="VD: Chi phí thuê phòng trong 4 giờ" 
+                                                rows={2} 
+                                                {...itemField} 
+                                              />
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )}
+                                      />
+                                    </div>
+                                  </Card>
+                                );
+                              })}
+                              
+                              {/* Display total amount reactively */}
+                              <FundRequestTotalDisplay form={form} />
+                            </div>
+                          )}
+                          {form.formState.errors.fundRequest?.items && (
+                            <p className="text-sm font-medium text-destructive">
+                              {(() => {
+                                const error = form.formState.errors.fundRequest.items;
+                                if (error && typeof error === 'object' && 'message' in error) {
+                                  return String(error.message);
+                                }
+                                if (Array.isArray(error)) {
+                                  const firstError = error.find(e => e && typeof e === 'object' && 'message' in e);
+                                  return firstError ? String(firstError.message) : "Vui lòng kiểm tra lại các hạng mục quỹ";
+                                }
+                                return "Vui lòng kiểm tra lại các hạng mục quỹ";
+                              })()}
+                            </p>
+                          )}
+                        </FormItem>
+                      );
+                    }}
+                  />
+                </div>
               </form>
             </Form>
             <DialogFooter>

@@ -15,6 +15,7 @@ export interface Event {
   endTime: string | null;
   location: string | null;
   isActive: boolean;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
   updatedAt: string;
   format: 'ONLINE' | 'OFFLINE';
@@ -55,6 +56,18 @@ export interface GetEventsParams {
   includeInactive?: string; // 'true' to include inactive/ended events
 }
 
+export interface FundRequestItem {
+  name: string;
+  amount: number;
+  description?: string;
+}
+
+export interface FundRequest {
+  title: string;
+  description: string;
+  items: FundRequestItem[];
+}
+
 export interface CreateEventPayload {
   title: string;
   description?: string;
@@ -69,6 +82,7 @@ export interface CreateEventPayload {
   onlineLink?: string;
   visibleFrom?: string;
   staffIds?: string[];
+  fundRequest: FundRequest;
 }
 
 export interface UpdateEventPayload extends Partial<CreateEventPayload> {

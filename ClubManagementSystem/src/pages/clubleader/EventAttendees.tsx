@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,103 +44,105 @@ interface EventData {
 }
 
 export default function EventAttendees() {
-  const { clubId, eventId } = useParams<{ clubId: string; eventId: string }>();
+  const { eventId } = useParams<{ clubId: string; eventId: string }>();
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [event, setEvent] = useState<EventData | null>(null);
-  const [attendees, setAttendees] = useState<Participant[]>([]);
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [checkInFilter, setCheckInFilter] = useState<string>("all");
-  const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
-  useEffect(() => {
-    if (eventId) {
-      fetchData();
-    }
-  }, [eventId]);
+  // Fetch event details with caching
+  const { data: eventData, isLoading: loadingEvent } = useQuery({
+    queryKey: ["event-details", eventId],
+    queryFn: async () => {
+      if (!eventId) return null;
+      return await eventService.getById(eventId);
+    },
+    enabled: !!eventId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
+  // Transform event data
+  const event: EventData | null = eventData ? {
+    id: eventData.id,
+    title: eventData.title,
+    format: eventData.format,
+    startTime: eventData.startTime,
+    endTime: eventData.endTime,
+    club: eventData.club,
+  } : null;
+
+  // Debounce search query
   useEffect(() => {
-    // Debounce search and filter changes
     const timer = setTimeout(() => {
-      if (eventId) {
-        fetchData();
-      }
+      setDebouncedSearchQuery(searchQuery);
     }, 300);
-
     return () => clearTimeout(timer);
-  }, [searchQuery, checkInFilter]);
+  }, [searchQuery]);
 
-  const fetchData = async () => {
-    if (!eventId) return;
-    try {
-      setLoading(true);
-      // Fetch event details
-      const eventData = await eventService.getById(eventId);
-      setEvent({
-        id: eventData.id,
-        title: eventData.title,
-        format: eventData.format,
-        startTime: eventData.startTime,
-        endTime: eventData.endTime,
-        club: eventData.club,
-      });
-
-      // Fetch participants with search query and filter
-      const participantsResponse = await eventService.getParticipants(eventId, {
-        search: searchQuery || undefined,
+  const { data: participantsData, isLoading: loadingParticipants } = useQuery({
+    queryKey: ["event-participants", eventId, debouncedSearchQuery, checkInFilter],
+    queryFn: async () => {
+      if (!eventId) return null;
+      return await eventService.getParticipants(eventId, {
+        search: debouncedSearchQuery || undefined,
         checkedIn: checkInFilter !== "all" ? checkInFilter : undefined,
       });
-      setAttendees(participantsResponse.data?.participants || []);
-    } catch (error: any) {
-      console.error("Error fetching data:", error);
-      toast({
-        title: "Lỗi",
-        description: error.response?.data?.message || "Không thể tải dữ liệu",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    enabled: !!eventId,
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes (shorter since this changes more often)
+  });
 
-  const handleCheckIn = async (email: string, participantId: string) => {
-    if (!eventId) return;
-    try {
-      setCheckingIn(participantId);
-      await eventService.checkInByEmail(eventId, email);
+  const attendees = participantsData?.data?.participants || [];
+  const loading = loadingEvent || loadingParticipants;
+
+  // Check-in mutation
+  const checkInMutation = useMutation({
+    mutationFn: async ({ email, eventId }: { email: string; eventId: string }) => {
+      return await eventService.checkInByEmail(eventId, email);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch participants data
+      queryClient.invalidateQueries({ queryKey: ["event-participants", eventId] });
       toast({
         title: "Thành công",
         description: "Đã điểm danh thành công",
       });
-      // Refresh data
-      await fetchData();
-    } catch (error: any) {
-      console.error("Error checking in:", error);
+    },
+    onError: (error: any) => {
       toast({
         title: "Lỗi",
-        description: error.response?.data?.message || "Không thể điểm danh",
+        description: error?.response?.data?.message || "Không thể điểm danh",
         variant: "destructive",
       });
-    } finally {
-      setCheckingIn(null);
-    }
+    },
+  });
+
+  const handleCheckIn = async (email: string, participantId: string) => {
+    if (!eventId) return;
+    setCheckingIn(participantId);
+    checkInMutation.mutate({ email, eventId }, {
+      onSettled: () => {
+        setCheckingIn(null);
+      },
+    });
   };
 
   const stats = {
     total: attendees.length,
     registered: attendees.length, // All participants are registered
-    checked_in: attendees.filter((a) => a.isCheckedIn).length,
+    checked_in: attendees.filter((a: Participant) => a.isCheckedIn).length,
     pending: 0, // Backend doesn't have pending status
   };
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <Button variant="ghost" asChild className="mb-6">
-          <Link to={`/club-leader/${clubId}/dashboard`}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Quay lại Dashboard
-          </Link>
+        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Quay lại
         </Button>
 
         {loading ? (
@@ -248,7 +251,7 @@ export default function EventAttendees() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  attendees.map((attendee) => (
+                  attendees.map((attendee: Participant) => (
                     <TableRow key={attendee.id}>
                       <TableCell className="font-medium">
                         {attendee.user.fullName || "N/A"}

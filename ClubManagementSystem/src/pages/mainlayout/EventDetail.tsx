@@ -1,5 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,60 +44,61 @@ const EventDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const user = useAppSelector((s) => s.auth.user);
-  const [event, setEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
-  const [hasRegistered, setHasRegistered] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchEvent();
-    }
-  }, [id]);
+  // Fetch event with caching
+  const { data: event, isLoading: loading, error } = useQuery({
+    queryKey: ["event-detail", id],
+    queryFn: async () => {
+      if (!id) return null;
+      return await eventService.getById(id);
+    },
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 1,
+  });
 
-  const fetchEvent = async () => {
-    try {
-      setLoading(true);
-      const eventData = await eventService.getById(id!);
-      setEvent(eventData);
-      
-      // Check if user has registered
-      if (user) {
-        await checkRegistrationStatus(eventData.id);
+  // Check registration status
+  const { data: registrationData } = useQuery({
+    queryKey: ["event-registration", id, user?.id],
+    queryFn: async () => {
+      if (!user || !id) return { hasRegistered: false };
+      try {
+        const response = await ticketService.getMyTickets(id);
+        const tickets = response.data.tickets || [];
+        const activeTickets = tickets.filter((t: any) =>
+          ["PAID", "RESERVED", "USED"].includes(t.status)
+        );
+        return { hasRegistered: activeTickets.length > 0 };
+      } catch (error: any) {
+        return { hasRegistered: false };
       }
-    } catch (error: any) {
-      console.error("Error fetching event:", error);
-      toast({
-        title: "Lỗi",
-        description: error.response?.data?.message || "Không thể tải thông tin sự kiện",
-        variant: "destructive",
-      });
-      navigate("/events");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    enabled: !!user && !!id,
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+  });
 
-  const checkRegistrationStatus = async (eventId: string) => {
-    if (!user) return;
-    try {
-      const response = await ticketService.getMyTickets(eventId);
-      const tickets = response.data.tickets || [];
-      // Chỉ tính là đã đăng ký nếu có vé còn hiệu lực (không bị huỷ / hết hạn / thất bại)
-      const activeTickets = tickets.filter((t: any) =>
-        ["PAID", "RESERVED", "USED"].includes(t.status)
-      );
-      setHasRegistered(activeTickets.length > 0);
-    } catch (error: any) {
-      // If error, assume not registered
-      console.error("Error checking registration:", error);
-      setHasRegistered(false);
-    }
-  };
+  const hasRegistered = registrationData?.hasRegistered || false;
+
+  // Handle error
+  if (error) {
+    toast({
+      title: "Lỗi",
+      description: (error as any)?.response?.data?.message || "Không thể tải thông tin sự kiện",
+      variant: "destructive",
+    });
+    navigate("/events");
+  }
 
   const isRegistrationOpen = (event: Event) => {
     if (!event.isActive) return false;
+    
+    // Event must be approved for registration to be open (matching backend logic)
+    // Only check if approvalStatus is provided (for backwards compatibility with events that don't require approval)
+    if (event.approvalStatus && event.approvalStatus !== 'APPROVED') return false;
+    
     const now = new Date();
     const startTime = new Date(event.startTime);
     const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
@@ -104,8 +106,9 @@ const EventDetail = () => {
     // Event is hidden if current time is before visibleFrom
     if (visibleFrom && now < visibleFrom) return false;
 
-    // Registration closes when event starts
-    if (now >= startTime) return false;
+    // Registration closes 1 hour before event starts (matching backend logic)
+    const oneHourBeforeStart = new Date(startTime.getTime() - 60 * 60 * 1000);
+    if (now >= oneHourBeforeStart) return false;
 
     // Check capacity
     const currentAttendees = event._count?.tickets || 0;
@@ -158,12 +161,9 @@ const EventDetail = () => {
         }
       }
 
-      // Refresh event data to update attendee count
-      await fetchEvent();
-      // Check registration status again
-      if (user && event) {
-        await checkRegistrationStatus(event.id);
-      }
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["event-detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["event-registration", id, user?.id] });
     } catch (error: any) {
       console.error("Error registering:", error);
       toast({
@@ -259,6 +259,10 @@ const EventDetail = () => {
   const now = new Date(); // Current local time
   const startTime = new Date(event.startTime); // UTC string parsed to local Date
   const endTime = event.endTime ? new Date(event.endTime) : null; // UTC string parsed to local Date
+  const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
+  
+  // Check why registration is closed
+  const isBeforeVisibleFrom = visibleFrom && now < visibleFrom;
   
   // Event is past if it has an endTime and current time is after endTime
   const isPast = endTime ? now > endTime : false;
@@ -448,6 +452,11 @@ const EventDetail = () => {
                         <CheckCircle2 className="h-4 w-4 mr-2" />
                         Đang mở đăng ký
                       </Badge>
+                    ) : isBeforeVisibleFrom ? (
+                      <Badge variant="outline" className="w-full justify-center">
+                        <Clock className="h-4 w-4 mr-2" />
+                        Chưa mở đăng ký
+                      </Badge>
                     ) : (
                       <Badge variant="outline" className="w-full justify-center">
                         <XCircle className="h-4 w-4 mr-2" />
@@ -484,6 +493,8 @@ const EventDetail = () => {
                             "Đăng ký tham gia"
                           ) : isHappening ? (
                             "Sự kiện đang diễn ra"
+                          ) : isBeforeVisibleFrom ? (
+                            "Chưa mở đăng ký"
                           ) : (
                             "Đã đóng đăng ký"
                           )}
