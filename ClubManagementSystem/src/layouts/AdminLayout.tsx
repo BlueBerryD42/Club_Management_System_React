@@ -62,8 +62,8 @@ const AdminLayout = () => {
         <NavItem to="/admin/dashboard" icon={LayoutDashboard} label="Tổng quan" />
         <NavItem to="/admin/clubs" icon={Tent} label="Quản lý CLB" />
         <NavItem to="/admin/users" icon={Users} label="Quản lý Người dùng" />
-        <NavItem to="/admin/finance/requests" icon={FileText} label="Yêu cầu chi" />
-        <NavItem to="/admin/audit" icon={History} label="Nhật ký hệ thống" />
+        {/* <NavItem to="/admin/finance/requests" icon={FileText} label="Yêu cầu chi" /> */}
+        {/* <NavItem to="/admin/audit" icon={History} label="Nhật ký hệ thống" /> */}
       </nav>
 
       <div className="p-4 border-t">

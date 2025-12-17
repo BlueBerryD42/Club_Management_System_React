@@ -217,12 +217,12 @@ const Login = () => {
                   )}
                 </Button>
 
-                <p className="text-center text-sm text-muted-foreground mt-6">
+                {/* <p className="text-center text-sm text-muted-foreground mt-6">
                   Chưa có tài khoản?{" "}
                   <Link to="/register" className="text-primary font-medium hover:underline">
                     Đăng ký ngay
                   </Link>
-                </p>
+                </p> */}
               </form>
 
               <div className="mt-6">

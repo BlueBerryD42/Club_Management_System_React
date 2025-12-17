@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   XCircle,
   UserCog,
+  Star,
+  MessageSquare,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -81,6 +83,25 @@ const EventDetail = () => {
   });
 
   const hasRegistered = registrationData?.hasRegistered || false;
+
+  // Fetch user's own feedback for ended events
+  const { data: feedbackData } = useQuery({
+    queryKey: ["event-feedbacks", id, user?.id],
+    queryFn: async () => {
+      if (!id || !user) return null;
+      try {
+        const response = await eventService.getFeedbacks(id);
+        const allFeedbacks = response.data?.feedbacks || [];
+        // Filter to show only current user's feedback
+        const userFeedback = allFeedbacks.find((f: any) => f.userId === user.id || f.user?.id === user.id);
+        return userFeedback || null;
+      } catch (error) {
+        return null;
+      }
+    },
+    enabled: !!id && !!user,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
   // Handle error
   if (error) {
@@ -447,15 +468,15 @@ const EventDetail = () => {
                         <Clock className="h-4 w-4 mr-2" />
                         Sự kiện đang diễn ra
                       </Badge>
-                    ) : registrationOpen ? (
-                      <Badge className="bg-success/20 text-success border-success/30 w-full justify-center">
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Đang mở đăng ký
-                      </Badge>
                     ) : isBeforeVisibleFrom ? (
                       <Badge variant="outline" className="w-full justify-center">
                         <Clock className="h-4 w-4 mr-2" />
                         Chưa mở đăng ký
+                      </Badge>
+                    ) : registrationOpen ? (
+                      <Badge className="bg-success/20 text-success border-success/30 w-full justify-center">
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Đang mở đăng ký
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="w-full justify-center">
@@ -537,6 +558,71 @@ const EventDetail = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Feedback Section - Only show for ended events, user's own feedback */}
+            {isPast && user && (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <MessageSquare className="h-5 w-5 text-primary" />
+                      <h3 className="font-semibold text-lg">Đánh giá của bạn</h3>
+                    </div>
+                    
+                    {feedbackData ? (
+                      <div className="space-y-4">
+                        {/* User's Rating */}
+                        <div className="flex items-center gap-4 pb-4 border-b">
+                          <div className="text-center">
+                            <div className="text-3xl font-bold text-primary">
+                              {feedbackData.rating || '0'}
+                            </div>
+                            <div className="flex items-center justify-center gap-1 mt-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-4 w-4 ${
+                                    star <= (feedbackData.rating || 0)
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "text-gray-300"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            <div>
+                              {format(new Date(feedbackData.createdAt), "dd/MM/yyyy", { locale: vi })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* User's Comment */}
+                        {feedbackData.comment && (
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">
+                              {feedbackData.comment}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm mb-3">Bạn chưa đánh giá sự kiện này</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/events/${id}/feedback`)}
+                        >
+                          Đánh giá ngay
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Club Info */}
             <Card>

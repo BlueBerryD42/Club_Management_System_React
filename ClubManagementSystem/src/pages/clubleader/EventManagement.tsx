@@ -120,7 +120,15 @@ const eventFormSchema = z.object({
   format: z.enum(["ONLINE", "OFFLINE"], { required_error: "Vui lòng chọn hình thức tổ chức" }),
   location: z.string().optional(),
   onlineLink: z.string().url("Link không hợp lệ").optional().or(z.literal("")),
-  startTime: z.string().min(1, "Vui lòng chọn thời gian bắt đầu"),
+  startTime: z.string().min(1, "Vui lòng chọn thời gian bắt đầu").refine((val) => {
+    if (!val) return false;
+    const startTime = new Date(val);
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return startTime >= sevenDaysFromNow;
+  }, {
+    message: "Thời gian bắt đầu phải cách ngày hiện tại ít nhất 7 ngày",
+  }),
   endTime: z.string().optional(),
   capacity: z.number().min(1, "Số người tối đa phải lớn hơn 0").optional(),
   visibleFrom: z.string().min(1, "Vui lòng chọn thời gian hiển thị"),
@@ -1011,6 +1019,17 @@ export default function EventManagement() {
                           <Input 
                             type="datetime-local" 
                             className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
+                            min={(() => {
+                              const now = new Date();
+                              const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                              // Format as YYYY-MM-DDTHH:mm for datetime-local input
+                              const year = sevenDaysFromNow.getFullYear();
+                              const month = String(sevenDaysFromNow.getMonth() + 1).padStart(2, '0');
+                              const day = String(sevenDaysFromNow.getDate()).padStart(2, '0');
+                              const hours = String(sevenDaysFromNow.getHours()).padStart(2, '0');
+                              const minutes = String(sevenDaysFromNow.getMinutes()).padStart(2, '0');
+                              return `${year}-${month}-${day}T${hours}:${minutes}`;
+                            })()}
                             {...field}
                             onChange={(e) => {
                               field.onChange(e);
@@ -1073,7 +1092,7 @@ export default function EventManagement() {
                           <div className="space-y-3">
                             {clubMembers
                               .filter((member: any) => 
-                                member.status === "ACTIVE" && member.role !== "LEADER"
+                                member.status === "ACTIVE" && member.role !== "LEADER" && member.role !== "TREASURER"
                               )
                               .map((member: any) => {
                                 const userId = member.userId || member.user?.id;

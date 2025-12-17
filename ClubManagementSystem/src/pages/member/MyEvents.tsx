@@ -21,7 +21,9 @@ import {
   QrCode,
   Link as LinkIcon,
   Search,
-  UserCog
+  UserCog,
+  MessageSquare,
+  Star
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -176,6 +178,26 @@ const MyEvents = () => {
     const isOnlineEvent = registration.event_format === 'ONLINE';
     const isOnlineUrl = isOnlineEvent && !!event.location && /^https?:\/\//.test(event.location);
 
+    // Check if user has submitted feedback for this event
+    const { data: hasFeedback } = useQuery({
+      queryKey: ['event-feedback-check', event.id, user?.id],
+      queryFn: async () => {
+        if (!isPastEvent || !registration.checked_in || !user) return false;
+        try {
+          const response = await eventService.getFeedbacks(event.id);
+          const feedbacks = response.data?.feedbacks || [];
+          // Check if current user has submitted feedback
+          const userFeedback = feedbacks.find((f: any) => f.userId === user.id || f.user?.id === user.id);
+          return !!userFeedback;
+        } catch (error) {
+          // If error, assume no feedback yet
+          return false;
+        }
+      },
+      enabled: isPastEvent && !!registration.checked_in && !!user,
+      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    });
+
     return (
       <Card
         className="hover:shadow-md transition-shadow cursor-pointer"
@@ -282,6 +304,29 @@ const MyEvents = () => {
                         >
                           <QrCode className="h-4 w-4 mr-2" />
                           QR Check-in
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {isPastEvent && registration.checked_in && (
+                    <>
+                      {hasFeedback ? (
+                        <Badge className="bg-success/20 text-success border-success/30">
+                          <Star className="h-3 w-3 mr-1" />
+                          Đã đánh giá
+                        </Badge>
+                      ) : (
+                        <Button 
+                          size="sm" 
+                          variant="default"
+                          className="whitespace-nowrap"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/events/${event.id}/feedback`);
+                          }}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Đánh giá
                         </Button>
                       )}
                     </>

@@ -12,34 +12,31 @@ import {
 } from 'recharts';
 import { Users, Tent, Calendar, Loader2 } from 'lucide-react';
 import { useQuery } from "@tanstack/react-query";
-// import { adminService } from "@/services/admin.service";
+import { adminService } from "@/services/admin.service";
 
 const DashboardPage = () => {
-  const { data: stats, isLoading } = useQuery({
+  const { data: statsResponse, isLoading } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
         try {
-            // return await adminService.getStats();
-            // Mocking API response for now until backend endpoint is confirmed
-            return {
-                totalClubs: 24,
-                activeMembers: 1250,
-                upcomingEvents: 15,
-                growthData: [
-                    { name: 'T1', clubs: 4, users: 240 },
-                    { name: 'T2', clubs: 6, users: 300 },
-                    { name: 'T3', clubs: 8, users: 450 },
-                    { name: 'T4', clubs: 12, users: 580 },
-                    { name: 'T5', clubs: 15, users: 700 },
-                    { name: 'T6', clubs: 18, users: 850 },
-                ]
-            };
+            const response = await adminService.getStats();
+            return response.data || response;
         } catch (error) {
             console.error("Failed to fetch stats", error);
             return null;
         }
     }
   });
+
+  const stats = statsResponse || {
+    totalClubs: 0,
+    newEventsThisMonth: 0,
+    activeMembers: 0,
+    newUsersThisMonth: 0,
+    eventsThisMonth: 0,
+    upcomingEvents: 0,
+    growthData: []
+  };
 
   if (isLoading) {
       return (
@@ -61,8 +58,10 @@ const DashboardPage = () => {
             <Tent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalClubs || 0}</div>
-            <p className="text-xs text-muted-foreground">+2 CLB mới tháng này</p>
+            <div className="text-2xl font-bold">{stats.totalClubs || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              +{stats.newEventsThisMonth || 0} sự kiện mới tháng này
+            </p>
           </CardContent>
         </Card>
         
@@ -72,8 +71,10 @@ const DashboardPage = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.activeMembers || 0}</div>
-            <p className="text-xs text-muted-foreground">+180 sinh viên mới</p>
+            <div className="text-2xl font-bold">{stats.activeMembers || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              +{stats.newUsersThisMonth || 0} sinh viên mới
+            </p>
           </CardContent>
         </Card>
 
@@ -83,8 +84,10 @@ const DashboardPage = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.upcomingEvents || 0}</div>
-            <p className="text-xs text-muted-foreground">8 sự kiện sắp diễn ra</p>
+            <div className="text-2xl font-bold">{stats.eventsThisMonth || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.upcomingEvents || 0} sự kiện sắp diễn ra
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -110,16 +113,16 @@ const DashboardPage = () => {
 
         <Card className="col-span-1">
             <CardHeader>
-                <CardTitle>Hoạt động CLB Mới</CardTitle>
+                <CardTitle>Sự kiện mới</CardTitle>
             </CardHeader>
              <CardContent className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats?.growthData || []}>
+                    <BarChart data={stats.growthData || []}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip />
-                        <Bar dataKey="clubs" fill="#f97a1f" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="events" fill="#f97a1f" radius={[4, 4, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
             </CardContent>

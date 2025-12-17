@@ -8,6 +8,7 @@ import Clubs from '@/pages/mainlayout/Clubs';
 import ClubDetail from '@/pages/mainlayout/ClubDetail';
 import Events from '@/pages/mainlayout/Events';
 import EventDetail from '@/pages/mainlayout/EventDetail';
+import EventFeedback from '@/pages/member/EventFeedback';
 import About from '@/pages/mainlayout/About';
 import PaymentResultPage from '@/pages/payment/PaymentResultPage';
 
@@ -31,6 +32,10 @@ const PublicRoutes: RouteObject[] = [
     {
         path: '/events/:id',
         element: <EventDetail />,
+    },
+    {
+        path: '/events/:id/feedback',
+        element: <EventFeedback />,
     },
     {
         path: '/about',

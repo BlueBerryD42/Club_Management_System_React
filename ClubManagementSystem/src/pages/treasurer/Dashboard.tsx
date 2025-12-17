@@ -17,6 +17,21 @@ import {
 import { formatVND } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from "recharts";
 
 export default function TreasurerDashboard() {
   const { clubId } = useParams<{ clubId: string }>();
@@ -53,14 +68,36 @@ export default function TreasurerDashboard() {
     enabled: !!clubId,
   });
 
-  const balance = pendingData?.balance || balanceData?.balance || 0;
+  // Fetch monthly stats
+  const { data: monthlyStatsData, isLoading: loadingMonthlyStats } = useQuery({
+    queryKey: ["treasurer-monthly-stats", clubId],
+    queryFn: async () => {
+      if (!clubId) return null;
+      return await treasurerService.getMonthlyStats(clubId);
+    },
+    enabled: !!clubId,
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+  });
+
+  // Fetch chart data
+  const { data: chartData, isLoading: loadingChartData } = useQuery({
+    queryKey: ["treasurer-chart-data", clubId],
+    queryFn: async () => {
+      if (!clubId) return null;
+      return await treasurerService.getChartData(clubId);
+    },
+    enabled: !!clubId,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  const balance = pendingData?.balance || balanceData?.balance || monthlyStatsData?.balance || 0;
   const pendingCount = pendingData?.data?.length || 0;
 
-  // Calculate monthly stats (placeholder - would need actual ledger data)
-  const monthlyIncome = balanceData?.totalIncome || 0;
-  const monthlyExpense = balanceData?.totalExpense || 0;
+  // Get monthly stats from the new endpoint
+  const monthlyIncome = monthlyStatsData?.monthlyIncome || 0;
+  const monthlyExpense = monthlyStatsData?.monthlyExpense || 0;
 
-  if (loadingClub || loadingPending || loadingBalance) {
+  if (loadingClub || loadingPending || loadingBalance || loadingMonthlyStats || loadingChartData) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-64" />
@@ -254,7 +291,7 @@ export default function TreasurerDashboard() {
         </Card>
       )}
 
-      {/* Charts Placeholder */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -262,9 +299,46 @@ export default function TreasurerDashboard() {
             <CardDescription>Thu nhập và chi tiêu theo thời gian</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center text-muted-foreground">
-              <p>Biểu đồ sẽ được hiển thị khi có dữ liệu</p>
-            </div>
+            {chartData?.incomeExpenseOverTime && chartData.incomeExpenseOverTime.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={chartData.incomeExpenseOverTime}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fontSize: 12 }}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => formatVND(value)}
+                    labelStyle={{ color: '#000' }}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="income" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    name="Thu nhập"
+                    dot={{ r: 4 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="expense" 
+                    stroke="#ef4444" 
+                    strokeWidth={2}
+                    name="Chi tiêu"
+                    dot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                <p>Chưa có dữ liệu để hiển thị</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -274,9 +348,34 @@ export default function TreasurerDashboard() {
             <CardDescription>Theo nguồn thu (vé, phí thành viên)</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center text-muted-foreground">
-              <p>Biểu đồ sẽ được hiển thị khi có dữ liệu</p>
-            </div>
+            {chartData?.incomeDistribution && chartData.incomeDistribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={chartData.incomeDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {chartData.incomeDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => formatVND(value)}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                <p>Chưa có dữ liệu để hiển thị</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

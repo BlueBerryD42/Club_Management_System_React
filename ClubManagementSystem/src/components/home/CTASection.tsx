@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, UserPlus, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
+// import { ArrowRight, UserPlus } from "lucide-react";
 
 export function CTASection() {
   return (
@@ -18,11 +19,11 @@ export function CTASection() {
             Sẵn sàng tham gia cộng đồng CLB?
           </h2>
           <p className="text-lg md:text-xl opacity-90 mb-10">
-            Đăng ký ngay để khám phá hàng chục câu lạc bộ đa dạng, kết nối với bạn bè cùng đam mê và phát triển bản thân.
+            Khám phá hàng chục câu lạc bộ đa dạng, kết nối với bạn bè cùng đam mê và phát triển bản thân.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
+            {/* <Button
               size="xl"
               className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all"
               asChild
@@ -32,7 +33,7 @@ export function CTASection() {
                 Đăng ký tài khoản
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Link>
-            </Button>
+            </Button> */}
             <Button
               variant="outline"
               size="xl"
@@ -41,12 +42,12 @@ export function CTASection() {
             >
               <Link to="/clubs">
                 <Building2 className="h-5 w-5 mr-2" />
-                Đăng ký CLB mới
+                Tham gia CLB  
               </Link>
             </Button>
           </div>
 
-          <div className="mt-12 grid grid-cols-3 gap-8 max-w-md mx-auto">
+          <div className="mt-12 grid grid-cols-2 gap-8 max-w-md mx-auto">
             <div>
               <div className="text-3xl md:text-4xl font-bold">100%</div>
               <div className="text-sm opacity-80">Miễn phí</div>
@@ -55,10 +56,10 @@ export function CTASection() {
               <div className="text-3xl md:text-4xl font-bold">24/7</div>
               <div className="text-sm opacity-80">Hỗ trợ</div>
             </div>
-            <div>
+            {/* <div>
               <div className="text-3xl md:text-4xl font-bold">5 phút</div>
               <div className="text-sm opacity-80">Đăng ký</div>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

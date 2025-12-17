@@ -221,35 +221,71 @@ export const treasurerService = {
   },
 
   /**
+   * Get monthly income and expense statistics for a club
+   */
+  getMonthlyStats: async (clubId: string): Promise<{
+    monthlyIncome: number;
+    monthlyExpense: number;
+    balance: number;
+  }> => {
+    const response = await apiClient.get(`/clubs/${clubId}/monthly-stats`);
+    return response.data.data;
+  },
+
+  /**
+   * Get chart data for income/expense over time and income distribution
+   */
+  getChartData: async (clubId: string): Promise<{
+    incomeExpenseOverTime: Array<{
+      month: string;
+      income: number;
+      expense: number;
+    }>;
+    incomeDistribution: Array<{
+      name: string;
+      value: number;
+      color: string;
+    }>;
+  }> => {
+    const response = await apiClient.get(`/clubs/${clubId}/chart-data`);
+    return response.data.data;
+  },
+
+  /**
    * Get ledger entries for a club
-   * Note: This endpoint might need to be created in the backend
    */
   getLedgerEntries: async (params: GetLedgerParams): Promise<{ data: LedgerEntry[]; pagination?: any }> => {
-    // TODO: Create backend endpoint /api/clubs/:clubId/ledger
-    // For now, return empty array - this will need backend implementation
+    const queryParams: any = {};
+    if (params.type) queryParams.type = params.type;
+    if (params.startDate) queryParams.startDate = params.startDate;
+    if (params.endDate) queryParams.endDate = params.endDate;
+    if (params.page) queryParams.page = params.page;
+    if (params.limit) queryParams.limit = params.limit;
+
+    const response = await apiClient.get(`/clubs/${params.clubId}/ledger`, { params: queryParams });
     return {
-      data: [],
+      data: response.data.data || [],
+      pagination: response.data.pagination,
     };
   },
 
   /**
    * Get transactions for a club
-   * Note: Current endpoint only returns user's own transactions
-   * Need to check if there's a club-level transactions endpoint
    */
   getTransactions: async (params: GetTransactionsParams): Promise<{ data: Transaction[]; pagination?: any }> => {
-    // TODO: Check if backend has /api/clubs/:clubId/transactions endpoint
-    // For now, this might need to use a different approach
-    const response = await apiClient.get('/transactions/my', {
-      params: {
-        type: params.type,
-        status: params.status,
-        page: params.page,
-        limit: params.limit,
-      },
-    });
-    // Filter by clubId on frontend if needed
-    return response.data;
+    const queryParams: any = {};
+    if (params.type) queryParams.type = params.type;
+    if (params.status) queryParams.status = params.status;
+    if (params.startDate) queryParams.startDate = params.startDate;
+    if (params.endDate) queryParams.endDate = params.endDate;
+    if (params.page) queryParams.page = params.page;
+    if (params.limit) queryParams.limit = params.limit;
+
+    const response = await apiClient.get(`/clubs/${params.clubId}/transactions`, { params: queryParams });
+    return {
+      data: response.data.data || [],
+      pagination: response.data.pagination,
+    };
   },
 
   /**
@@ -264,12 +300,26 @@ export const treasurerService = {
 
   /**
    * Export financial report
-   * Note: This endpoint might need to be created in the backend
    */
-  exportReport: async (clubId: string, dateRange: { startDate: string; endDate: string }, format: 'pdf' | 'excel' | 'csv'): Promise<Blob> => {
-    // TODO: Create backend endpoint /api/clubs/:clubId/reports/export
-    // For now, this is a placeholder
-    throw new Error('Export report endpoint not yet implemented in backend');
+  exportReport: async (
+    clubId: string,
+    reportType: string,
+    dateRange: { startDate: string; endDate: string },
+    format: 'pdf' | 'excel' | 'csv'
+  ): Promise<Blob> => {
+    const response = await apiClient.post(
+      `/clubs/${clubId}/reports/export`,
+      {
+        reportType,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+        format: format === 'excel' ? 'xlsx' : format,
+      },
+      {
+        responseType: 'blob',
+      }
+    );
+    return response.data;
   },
 };
 

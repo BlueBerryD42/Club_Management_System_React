@@ -139,10 +139,10 @@ const Register = () => {
 
           <Card className="border-0 shadow-xl">
             <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-2xl font-bold">Đăng ký tài khoản</CardTitle>
+              {/* <CardTitle className="text-2xl font-bold">Đăng ký tài khoản</CardTitle>
               <CardDescription>
                 Tạo tài khoản mới để bắt đầu khám phá
-              </CardDescription>
+              </CardDescription> */}
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">

@@ -161,5 +161,21 @@ export const eventService = {
     const response = await apiClient.post('/checkin/email', { eventId, email });
     return response.data;
   },
+
+  /**
+   * Submit feedback for an event (requires registration and check-in)
+   */
+  submitFeedback: async (eventId: string, data: { rating: number; comment?: string }): Promise<any> => {
+    const response = await apiClient.post(`/events/${eventId}/feedback`, data);
+    return response.data;
+  },
+
+  /**
+   * Get feedbacks for an event
+   */
+  getFeedbacks: async (eventId: string): Promise<any> => {
+    const response = await apiClient.get(`/events/${eventId}/feedback`);
+    return response.data;
+  },
 };
 

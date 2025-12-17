@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { treasurerService } from "@/services/treasurer.service";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ import {
   TrendingDown,
   Search,
   Download,
-  Calendar
+  Loader2
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -37,10 +38,12 @@ import {
 
 export default function LedgerPage() {
   const { clubId } = useParams<{ clubId: string }>();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: ledgerData, isLoading } = useQuery({
     queryKey: ["treasurer-ledger", clubId, typeFilter, startDate, endDate],
@@ -67,9 +70,73 @@ export default function LedgerPage() {
     );
   });
 
-  const handleExport = () => {
-    // TODO: Implement export functionality
-    alert("Chức năng xuất file sẽ được triển khai khi backend hỗ trợ");
+  const handleExport = async () => {
+    if (!clubId) {
+      toast({
+        title: "Lỗi",
+        description: "Không tìm thấy CLB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Determine report type based on filter
+    let reportType = "transaction-summary";
+    if (typeFilter === "INCOME") {
+      reportType = "income-statement";
+    } else if (typeFilter === "EXPENSE") {
+      reportType = "expense-report";
+    }
+
+    // Use date range if provided, otherwise use all time
+    const exportStartDate = startDate || new Date(0).toISOString().split("T")[0];
+    const exportEndDate = endDate || new Date().toISOString().split("T")[0];
+
+    setIsExporting(true);
+    try {
+      const blob = await treasurerService.exportReport(
+        clubId,
+        reportType,
+        { startDate: exportStartDate, endDate: exportEndDate },
+        "excel"
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Set filename
+      const dateRange = startDate && endDate 
+        ? `${startDate}_${endDate}` 
+        : `all_time`;
+      const typeLabel = typeFilter === "all" 
+        ? "SoCai" 
+        : typeFilter === "INCOME" 
+        ? "ThuNhap" 
+        : "ChiTieu";
+      const fileName = `SoCai_${typeLabel}_${dateRange}.xlsx`;
+      link.setAttribute("download", fileName);
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Thành công",
+        description: "Đã xuất sổ cái thành công",
+      });
+    } catch (error: any) {
+      console.error("Export error:", error);
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Lỗi khi xuất sổ cái",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isLoading) {
@@ -90,9 +157,22 @@ export default function LedgerPage() {
             Lịch sử thu chi của câu lạc bộ
           </p>
         </div>
-        <Button onClick={handleExport} variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Xuất file
+        <Button 
+          onClick={handleExport} 
+          variant="outline"
+          disabled={isExporting}
+        >
+          {isExporting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Đang xuất...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Xuất file
+            </>
+          )}
         </Button>
       </div>
 

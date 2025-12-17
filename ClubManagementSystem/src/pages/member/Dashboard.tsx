@@ -250,7 +250,7 @@ const Dashboard = () => {
                   </Link>
                 </Button>
                 <Button variant="outline" className="h-auto py-4 justify-start" asChild>
-                  <Link to="/fees">
+                  <Link to="/member/fees">
                     <CreditCard className="h-5 w-5 mr-3" />
                     <div className="text-left">
                       <div className="font-medium">Thanh toán</div>

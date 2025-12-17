@@ -314,10 +314,10 @@ const Events = () => {
                   return (
                     <Card 
                       key={event.id} 
-                      className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                      className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col h-full"
                       onClick={() => handleCardClick(event)}
                     >
-                      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20">
+                      <div className="relative h-48 overflow-hidden bg-gradient-to-br from-primary/20 to-secondary/20 flex-shrink-0">
                         {event.club.logoUrl ? (
                           <img
                             src={event.club.logoUrl}
@@ -364,39 +364,41 @@ const Events = () => {
                         </div>
                       </div>
 
-                      <CardContent className="p-5">
-                        <h3 className="font-semibold text-lg mb-3 group-hover:text-primary transition-colors line-clamp-2">
-                          {event.title}
-                        </h3>
+                      <CardContent className="p-5 flex flex-col flex-1">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg mb-3 group-hover:text-primary transition-colors line-clamp-2">
+                            {event.title}
+                          </h3>
 
-                        {event.description && (
-                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                            {event.description}
-                          </p>
-                        )}
+                          {event.description && (
+                            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                              {event.description}
+                            </p>
+                          )}
 
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            {formatEventTime(event.startTime, event.endTime)}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            {event.format === "ONLINE" ? (
-                              <LinkIcon className="h-4 w-4" />
-                            ) : (
-                              <MapPin className="h-4 w-4" />
-                            )}
-                            <span className="line-clamp-1">{location}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Users className="h-4 w-4" />
-                            {event.capacity 
-                              ? `${attendees}/${event.capacity} người đăng ký`
-                              : `${attendees} người đăng ký (Không giới hạn)`}
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              {formatEventTime(event.startTime, event.endTime)}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              {event.format === "ONLINE" ? (
+                                <LinkIcon className="h-4 w-4" />
+                              ) : (
+                                <MapPin className="h-4 w-4" />
+                              )}
+                              <span className="line-clamp-1">{location}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Users className="h-4 w-4" />
+                              {event.capacity 
+                                ? `${attendees}/${event.capacity} người đăng ký`
+                                : `${attendees} người đăng ký (Không giới hạn)`}
+                            </div>
                           </div>
                         </div>
 
-                        {/* Progress bar */}
+                        {/* Progress bar - positioned at bottom with button */}
                         {event.capacity != null && (
                           <div className="mb-4">
                             <div className="h-2 bg-muted rounded-full overflow-hidden">
