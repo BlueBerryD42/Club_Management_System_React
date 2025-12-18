@@ -1,20 +1,24 @@
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { persistStore, persistReducer, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist';
 import storage from 'redux-persist/lib/storage'; // defaults to localStorage for web
 import authReducer from './slices/authSlice';
 
+// Combine reducers first (even if only one for now)
+const rootReducer = combineReducers({
+    auth: authReducer,
+});
+
 const persistConfig = {
     key: 'root',
     storage,
-    whitelist: ['auth'], // only auth will be persisted
+    // Don't need whitelist since we're persisting the root reducer
+    // which already has the structure we want
 };
 
-const persistedReducer = persistReducer(persistConfig, authReducer);
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
-    reducer: {
-        auth: persistedReducer,
-    },
+    reducer: persistedReducer,
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: {

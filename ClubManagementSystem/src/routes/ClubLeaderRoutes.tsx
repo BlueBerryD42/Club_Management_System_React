@@ -1,21 +1,51 @@
 import type { RouteObject } from 'react-router-dom';
-import ProtectedRoute from '@/components/ProtectedRoute';
 import ClubLeaderLayout from '@/layouts/ClubLeaderLayout';
-
-// Placeholder page
-const ClubLeaderDashboard = () => <div>Club Leader Dashboard</div>;
+import Dashboard from '@/pages/clubleader/Dashboard';
+import Settings from '@/pages/clubleader/Settings';
+import MemberManagement from '@/pages/clubleader/MemberManagement';
+import EventManagement from '@/pages/clubleader/EventManagement';
+import JoinRequests from '@/pages/clubleader/JoinRequests';
+import EventAttendees from '@/pages/clubleader/EventAttendees';
+import EventDetailManagement from '@/pages/clubleader/EventDetailManagement';
+import FeeManagement from '@/pages/clubleader/FeeManagement';
 
 const ClubLeaderRoutes: RouteObject = {
-    path: 'club-leader',
+    path: '/club-leader/:clubId',
     element: (
-        <ProtectedRoute allowedRoles={['CLUB_LEADER']}>
-            <ClubLeaderLayout />
-        </ProtectedRoute>
+        <ClubLeaderLayout />
     ),
     children: [
         {
             path: 'dashboard',
-            element: <ClubLeaderDashboard />,
+            element: <Dashboard />,
+        },
+        {
+            path: 'settings',
+            element: <Settings />,
+        },
+        {
+            path: 'members',
+            element: <MemberManagement />,
+        },
+        {
+            path: 'events',
+            element: <EventManagement />,
+        },
+        {
+            path: 'events/:eventId/manage',
+            element: <EventDetailManagement />,
+        },
+        {
+            path: 'events/:eventId/attendees',
+            element: <EventAttendees />,
+        },
+        {
+            path: 'requests',
+            element: <JoinRequests />,
+        },
+        {
+            path: 'fees',
+            element: <FeeManagement />,
         },
     ],
 };

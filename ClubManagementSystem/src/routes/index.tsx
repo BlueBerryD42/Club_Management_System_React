@@ -1,20 +1,23 @@
 import { createBrowserRouter } from 'react-router-dom';
-import MainLayout from '@/layouts/MainLayout';
 import PublicRoutes from './PublicRoutes';
 import AdminRoutes from './AdminRoutes';
 import ClubLeaderRoutes from './ClubLeaderRoutes';
 import MemberRoutes from './MemberRoutes';
+import StaffRoutes from './StaffRoutes';
+import TreasurerRoutes from './TreasurerRoutes';
+import NotFound from '@/pages/mainlayout/NotFound';
 
 const router = createBrowserRouter([
+    ...PublicRoutes,
+    AdminRoutes,
+    ClubLeaderRoutes,
+    MemberRoutes,
+    StaffRoutes,
+    TreasurerRoutes,
+    // Catch-all route for 404
     {
-        path: '/',
-        element: <MainLayout />,
-        children: [
-            ...PublicRoutes,
-            AdminRoutes,
-            ClubLeaderRoutes,
-            MemberRoutes,
-        ],
+        path: '*',
+        element: <NotFound />,
     },
 ]);
 

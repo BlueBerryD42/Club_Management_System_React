@@ -1,20 +1,65 @@
 import type { RouteObject } from 'react-router-dom';
-import HomePage from '@/pages/HomePage';
+import Index from '../pages/HomePage';
 import LoginPage from '@/pages/auth/LoginPage';
+import RegisterPage from '@/pages/auth/RegisterPage';
+import GoogleCallbackPage from '@/pages/auth/GoogleCallbackPage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
+import Clubs from '@/pages/mainlayout/Clubs';
+import ClubDetail from '@/pages/mainlayout/ClubDetail';
+import Events from '@/pages/mainlayout/Events';
+import EventDetail from '@/pages/mainlayout/EventDetail';
+import EventFeedback from '@/pages/member/EventFeedback';
+import About from '@/pages/mainlayout/About';
+import PaymentResultPage from '@/pages/payment/PaymentResultPage';
 
 const PublicRoutes: RouteObject[] = [
     {
-        index: true,
-        element: <HomePage />,
+        path: '/',
+        element: <Index />,
     },
     {
-        path: 'login',
+        path: '/clubs',
+        element: <Clubs />,
+    },
+    {
+        path: '/clubs/:id',
+        element: <ClubDetail />,
+    },
+    {
+        path: '/events',
+        element: <Events />,
+    },
+    {
+        path: '/events/:id',
+        element: <EventDetail />,
+    },
+    {
+        path: '/events/:id/feedback',
+        element: <EventFeedback />,
+    },
+    {
+        path: '/about',
+        element: <About />,
+    },
+    {
+        path: '/login',
         element: <LoginPage />,
     },
     {
-        path: 'unauthorized',
+        path: '/register',
+        element: <RegisterPage />,
+    },
+    {
+        path: '/auth/callback',
+        element: <GoogleCallbackPage />,
+    },
+    {
+        path: '/unauthorized',
         element: <UnauthorizedPage />,
+    },
+    {
+        path: '/payment/result',
+        element: <PaymentResultPage />,
     },
 ];
 

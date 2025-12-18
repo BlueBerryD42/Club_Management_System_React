@@ -8,15 +8,16 @@ import { store } from '../store/store'
 import { logout } from '../store/slices/authSlice'
 
 // Sử dụng VITE_API_URL trực tiếp, không qua Gateway
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
 
 console.log('API URL:', API_URL)
 
 const attachInterceptors = (client: AxiosInstance) => {
     // Public endpoints that don't require authentication
     const publicEndpoints = [
-        '/login',
-        '/register',
+        '/users/login',
+        '/users/login-with-google',
+        '/users/register',
         '/forgot-password',
         '/reset-password',
         '/confirm-email',
@@ -34,9 +35,16 @@ const attachInterceptors = (client: AxiosInstance) => {
         (config: InternalAxiosRequestConfig) => {
             const state = store.getState()
             const token = state.auth.token
+            const isRehydrating = state.auth.isRehydrating
 
             // Skip token check for public endpoints
             if (isPublicEndpoint(config.url)) {
+                return config
+            }
+
+            // If still rehydrating, wait before making requests
+            if (isRehydrating) {
+                console.warn('⚠️ API request blocked during rehydration:', config.url)
                 return config
             }
 
