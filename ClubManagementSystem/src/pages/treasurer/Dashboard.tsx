@@ -20,8 +20,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+// Removed unused useState import
 import { Link } from "react-router-dom";
 // import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
@@ -164,7 +164,7 @@ const MyClubs = () => {
   //   }
   // }, [user, loading, navigate]);
 
-  const cancelRequest = async (requestId: string) => {
+  const cancelRequest = async (_requestId: string) => {
     // TODO: Call API to cancel the request
     toast({
       title: "Đã huỷ",
@@ -172,7 +172,7 @@ const MyClubs = () => {
     });
   };
 
-  const leaveClub = async (membershipId: string) => {
+  const leaveClub = async (_membershipId: string) => {
     // TODO: Call API to leave the club
     toast({
       title: "Đã rời",

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Users, Mail, Lock, Eye, EyeOff, ArrowRight, User, Hash, Loader2, Phone, GraduationCap } from "lucide-react";
 import { useAppSelector } from "@/store/hooks";
 import { useToast } from "@/hooks/use-toast";

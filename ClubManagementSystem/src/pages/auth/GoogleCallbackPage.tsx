@@ -13,7 +13,7 @@ const GoogleCallbackPage = () => {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
   const [status, setStatus] = useState("Đang xác thực với Google...");
-  const [countdown, setCountdown] = useState<number | null>(null);
+  const [, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     const exchangeAndLogin = async () => {

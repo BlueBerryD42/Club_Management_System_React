@@ -350,7 +350,7 @@ const ClubDetail = () => {
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-4">
-                            {clubData.recentMembers.map((member) => (
+                            {clubData.recentMembers.map((member: { id: string; name: string; avatar?: string }) => (
                               <div key={member.id} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted/50">
                                 <Avatar className="h-16 w-16">
                                   <AvatarImage src={member.avatar} alt={member.name} />

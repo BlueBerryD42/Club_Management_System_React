@@ -396,7 +396,7 @@ const Fees = () => {
                             {transaction.club?.name || 'N/A'}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Order: {transaction.orderCode || transaction.paymentReference || 'N/A'}
+                            Order: {transaction.orderCode || 'N/A'}
                           </p>
                         </div>
                         <div className="text-right">

@@ -73,7 +73,7 @@ export function ClubsPreview() {
               </div>
             ))
           )}
-          {!isLoading && clubs.map((club, index) => (
+          {!isLoading && clubs.map((club: typeof clubs[0], index: number) => (
             <Link
               key={club.id}
               to={`/clubs/${club.id}`}

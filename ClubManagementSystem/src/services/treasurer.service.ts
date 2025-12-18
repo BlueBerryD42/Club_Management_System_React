@@ -292,7 +292,7 @@ export const treasurerService = {
    * Mark fund request as disbursed
    * Note: This endpoint might need to be created in the backend
    */
-  markDisbursed: async (fundRequestId: string): Promise<any> => {
+  markDisbursed: async (_fundRequestId: string): Promise<any> => {
     // TODO: Create backend endpoint /api/fund-requests/:id/disburse
     // For now, this is a placeholder
     throw new Error('Mark disbursed endpoint not yet implemented in backend');

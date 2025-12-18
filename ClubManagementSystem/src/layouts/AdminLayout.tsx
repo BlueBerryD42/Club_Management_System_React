@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, Users, Tent, LogOut, Menu, FileText, History } from "lucide-react";
+import { LayoutDashboard, Users, Tent, LogOut, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {

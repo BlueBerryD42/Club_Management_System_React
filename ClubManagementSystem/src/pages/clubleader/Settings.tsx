@@ -19,22 +19,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
 import { ArrowLeft, Save, Building2 } from "lucide-react";
 
-interface Club {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  slug: string;
-  email: string;
-  phone: string;
-  facebook_url: string;
-  instagram_url: string;
-  founded_year: number;
-  max_members: number;
-  is_recruiting: boolean;
-  membership_fee_enabled: boolean;
-  membership_fee_amount: number;
-}
 
 const CATEGORIES = [
   "Học thuật",

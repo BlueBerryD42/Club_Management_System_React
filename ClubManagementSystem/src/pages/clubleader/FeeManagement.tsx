@@ -63,10 +63,8 @@ export default function FeeManagement() {
 
   const configFeeMutation = useMutation({
     mutationFn: () => clubApi.configMembershipFee(clubId!, {
-      name: feeFormData.name,
-      amount: feeFormData.amount,
-      description: feeFormData.description,
-      isRequired: feeFormData.is_required,
+      membershipFeeEnabled: feeFormData.is_required,
+      membershipFeeAmount: feeFormData.amount,
     }),
     onSuccess: () => {
       toast({ title: "Thành công", description: "Đã cấu hình phí hội viên" });

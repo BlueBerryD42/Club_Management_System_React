@@ -4,7 +4,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAppSelector } from "@/store/hooks";
 import { staffService } from "@/services/staff.service";
 import { eventService } from "@/services/event.service";
-import { Loader2 } from "lucide-react";
 
 const StaffDashboard = () => {
   const user = useAppSelector((s) => s.auth.user);

@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppSelector } from "@/store/hooks";
-import { useState, Fragment, useEffect } from "react";
+import { useState, Fragment } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";

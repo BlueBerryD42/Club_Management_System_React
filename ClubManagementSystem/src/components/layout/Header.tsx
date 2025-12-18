@@ -194,12 +194,7 @@ export function Header() {
                   Đăng nhập
                 </Link>
               </Button>
-              <Button variant="hero" size="sm" asChild>
-                <Link to="/register">
-                  <UserPlus className="h-4 w-4 mr-1" />
-                  Đăng ký
-                </Link>
-              </Button>
+
             </>
           )}
         </div>

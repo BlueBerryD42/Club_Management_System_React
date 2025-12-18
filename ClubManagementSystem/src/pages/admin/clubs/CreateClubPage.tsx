@@ -500,7 +500,7 @@ const CreateClubPage = () => {
                                                             </span>
                                                         </TableCell>
                                                         <TableCell>
-                                                            {member.isLeader === true || member.isLeader === 'true' || member.isLeader === 1 ? (
+                                                            {member.isLeader === true || member.isLeader === 'true' ? (
                                                                 <span className="text-xs px-2 py-1 rounded bg-primary/20 text-primary font-medium">
                                                                     ✓ Có
                                                                 </span>

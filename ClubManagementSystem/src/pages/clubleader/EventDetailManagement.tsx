@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { eventService, type Event } from "@/services/event.service";
+import { eventService } from "@/services/event.service";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,

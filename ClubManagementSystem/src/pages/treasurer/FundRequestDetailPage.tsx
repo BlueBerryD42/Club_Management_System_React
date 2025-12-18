@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -25,13 +25,10 @@ import {
   ArrowLeft, 
   CheckCircle2, 
   XCircle, 
-  Upload,
   DollarSign,
   Calendar,
   User,
-  FileText,
   AlertCircle,
-  ExternalLink,
   X,
   Image
 } from "lucide-react";
@@ -323,7 +320,7 @@ export default function FundRequestDetailPage() {
                 <Label className="text-muted-foreground">Người tạo</Label>
                 <p className="mt-1 flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  {event.createdBy.fullName || event.createdBy.email}
+                  {event.createdBy.fullName || 'N/A'}
                 </p>
               </div>
             </CardContent>

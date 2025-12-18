@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { treasurerService, type PendingEvent } from "@/services/treasurer.service";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { treasurerService } from "@/services/treasurer.service";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import {
   Calendar, 
   User, 
   DollarSign,
-  ArrowRight,
   Search,
   Eye
 } from "lucide-react";
@@ -206,7 +205,7 @@ export default function PendingFundRequestsPage() {
                       </div>
                       <Button 
                         variant="outline"
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.stopPropagation();
                           navigate(`/treasurer/${clubId}/fund-requests/${event.id}`);
                         }}
