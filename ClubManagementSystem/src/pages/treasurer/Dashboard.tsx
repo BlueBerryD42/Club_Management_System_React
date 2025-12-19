@@ -109,33 +109,45 @@ export default function TreasurerDashboard() {
   }
 
   const statCards = [
-    { 
-      title: "Số dư hiện tại", 
-      value: formatVND(balance), 
-      icon: Wallet, 
-      color: "text-primary",
-      description: "Tổng số dư quỹ CLB"
+    {
+      title: "Số dư hiện tại",
+      value: formatVND(balance),
+      icon: Wallet,
+      gradient: "from-primary/10 via-primary/5 to-transparent",
+      bubble: "bg-primary/10",
+      iconBg: "bg-primary/20",
+      accent: "text-primary",
+      description: "Tổng số dư quỹ CLB",
     },
-    { 
-      title: "Thu nhập tháng này", 
-      value: formatVND(monthlyIncome), 
-      icon: TrendingUp, 
-      color: "text-green-600",
-      description: "Tổng thu nhập trong tháng"
+    {
+      title: "Thu nhập tháng này",
+      value: formatVND(monthlyIncome),
+      icon: TrendingUp,
+      gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
+      bubble: "bg-emerald-500/10",
+      iconBg: "bg-emerald-500/20",
+      accent: "text-emerald-600",
+      description: "Tổng thu nhập trong tháng",
     },
-    { 
-      title: "Chi tiêu tháng này", 
-      value: formatVND(monthlyExpense), 
-      icon: TrendingDown, 
-      color: "text-red-600",
-      description: "Tổng chi tiêu trong tháng"
+    {
+      title: "Chi tiêu tháng này",
+      value: formatVND(monthlyExpense),
+      icon: TrendingDown,
+      gradient: "from-rose-500/10 via-rose-500/5 to-transparent",
+      bubble: "bg-rose-500/10",
+      iconBg: "bg-rose-500/20",
+      accent: "text-rose-600",
+      description: "Tổng chi tiêu trong tháng",
     },
-    { 
-      title: "Yêu cầu chờ duyệt", 
-      value: pendingCount, 
-      icon: FileText, 
-      color: "text-amber-600",
-      description: "Số yêu cầu chi đang chờ"
+    {
+      title: "Yêu cầu chờ duyệt",
+      value: pendingCount,
+      icon: FileText,
+      gradient: "from-amber-400/15 via-amber-400/10 to-transparent",
+      bubble: "bg-amber-400/15",
+      iconBg: "bg-amber-400/30",
+      accent: "text-amber-600",
+      description: "Số yêu cầu chi đang chờ",
     },
   ];
 
@@ -151,15 +163,21 @@ export default function TreasurerDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, index) => (
-          <Card key={index} className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
+          <Card
+            key={index}
+            className={`relative overflow-hidden border-0 bg-gradient-to-br ${stat.gradient} shadow-lg hover:shadow-xl transition-shadow`}
+          >
+            <div className={`absolute top-0 right-0 w-32 h-32 ${stat.bubble} rounded-full -translate-y-1/2 translate-x-1/2`} />
+            <CardContent className="p-6 relative">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold mt-2">{stat.value}</p>
+                  <p className="text-sm/5 text-muted-foreground">{stat.title}</p>
+                  <p className={`text-2xl font-bold mt-2 ${stat.accent}`}>{stat.value}</p>
                   <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
                 </div>
-                <stat.icon className={`h-10 w-10 ${stat.color} opacity-80`} />
+                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${stat.iconBg}`}>
+                  <stat.icon className={`h-7 w-7 ${stat.accent}`} />
+                </div>
               </div>
             </CardContent>
           </Card>

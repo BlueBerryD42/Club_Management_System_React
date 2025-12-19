@@ -29,6 +29,7 @@ import { useState, Fragment } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
+import { ScrollToTop } from "@/components/layout/ScrollToTop";
 
 const TreasurerLayout = () => {
   const { clubId } = useParams<{ clubId: string }>();
@@ -79,6 +80,29 @@ const TreasurerLayout = () => {
     return <Navigate to="/unauthorized" replace />;
   }
 
+  const treasurerClubIds = treasurerClubs.map((m) => m.clubId);
+  const { data: clubNameMap } = useQuery({
+    queryKey: ['treasurer-club-names', treasurerClubIds],
+    enabled: treasurerClubIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        treasurerClubIds.map(async (id) => {
+          try {
+            const res = await clubApi.getById(id);
+            const club = (res as any).data?.data || (res as any).data;
+            return [id, club?.name || id];
+          } catch (err) {
+            console.error('Failed to load club name', err);
+            return [id, id];
+          }
+        })
+      );
+      return Object.fromEntries(entries) as Record<string, string>;
+    }
+  });
+
+  const getClubName = (clubIdValue: string) => clubNameMap?.[clubIdValue] || treasurerClubs.find(c => c.clubId === clubIdValue)?.clubId || clubIdValue;
 
   const handleClubChange = (newClubId: string) => {
     const currentPath = location.pathname;
@@ -115,12 +139,12 @@ const TreasurerLayout = () => {
           <div className="mt-3">
             <Select value={clubId} onValueChange={handleClubChange}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Chọn CLB" />
+                <SelectValue placeholder="Chọn CLB">{clubId ? getClubName(clubId) : "Chọn CLB"}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {treasurerClubs.map((membership) => (
                   <SelectItem key={membership.clubId} value={membership.clubId}>
-                    CLB #{membership.clubId.slice(0, 6)}
+                    {getClubName(membership.clubId)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -197,7 +221,8 @@ const TreasurerLayout = () => {
         )}
 
         {/* Page Content */}
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-6 overflow-auto" data-scroll-root>
+          <ScrollToTop />
           {/* Breadcrumbs */}
           <div className="mb-6">
             <Breadcrumb>

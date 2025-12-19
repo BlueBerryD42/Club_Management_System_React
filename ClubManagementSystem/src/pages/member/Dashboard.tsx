@@ -142,32 +142,40 @@ const Dashboard = () => {
       title: "CLB của tôi",
       value: stats.myClubs,
       icon: Building2,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      gradient: "from-primary/10 via-primary/5 to-transparent",
+      bubble: "bg-primary/10",
+      iconBg: "bg-primary/20",
+      accent: "text-primary",
       href: "/member/my-clubs",
     },
     {
       title: "Sự kiện sắp tới",
       value: stats.upcomingEvents,
       icon: Calendar,
-      color: "text-success",
-      bgColor: "bg-success/10",
+      gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
+      bubble: "bg-emerald-500/10",
+      iconBg: "bg-emerald-500/20",
+      accent: "text-emerald-600",
       href: "/member/my-events",
     },
     {
       title: "Phí cần đóng",
       value: stats.pendingFees,
       icon: CreditCard,
-      color: "text-warning",
-      bgColor: "bg-warning/10",
+      gradient: "from-amber-400/15 via-amber-400/10 to-transparent",
+      bubble: "bg-amber-400/15",
+      iconBg: "bg-amber-400/30",
+      accent: "text-amber-600",
       href: "/member/fees",
     },
     {
       title: "Đơn chờ duyệt",
       value: stats.pendingRequests,
       icon: Clock,
-      color: "text-accent",
-      bgColor: "bg-accent/10",
+      gradient: "from-indigo-500/10 via-indigo-500/5 to-transparent",
+      bubble: "bg-indigo-500/10",
+      iconBg: "bg-indigo-500/20",
+      accent: "text-indigo-600",
       href: "/member/pending-applications",
     },
   ];
@@ -195,15 +203,16 @@ const Dashboard = () => {
             const Icon = stat.icon;
             return (
               <Link key={stat.title} to={stat.href}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="p-6">
+                <Card className={`relative overflow-hidden border-0 bg-gradient-to-br ${stat.gradient} shadow-lg hover:shadow-xl transition-shadow cursor-pointer`}>
+                  <div className={`absolute top-0 right-0 w-28 h-28 ${stat.bubble} rounded-full -translate-y-1/2 translate-x-1/2`} />
+                  <CardContent className="p-6 relative">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground mb-1">{stat.title}</p>
-                        <p className="text-3xl font-bold">{isClubsLoading ? "-" : stat.value}</p>
+                        <p className="text-sm mb-1 text-muted-foreground">{stat.title}</p>
+                        <p className={`text-3xl font-bold ${stat.accent}`}>{isClubsLoading ? "-" : stat.value}</p>
                       </div>
-                      <div className={`h-12 w-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
-                        <Icon className={`h-6 w-6 ${stat.color}`} />
+                      <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${stat.iconBg}`}>
+                        <Icon className={`h-6 w-6 ${stat.accent}`} />
                       </div>
                     </div>
                   </CardContent>

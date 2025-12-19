@@ -5,6 +5,7 @@ import { ArrowRight, Users, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
+import Marquee from "@/components/animata/container/marquee";
 
 const categoryColors: Record<string, string> = {
   "Học thuật": "bg-primary/10 text-primary",
@@ -57,9 +58,10 @@ export function ClubsPreview() {
           </Button>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {isLoading && (
-            Array.from({ length: 4 }).map((_, i) => (
+        {/* Loading state keeps the original grid */}
+        {isLoading && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Array.from({ length: 4 }).map((_, i) => (
               <div key={`skeleton-${i}`} className="rounded-2xl bg-card border border-border/50 overflow-hidden shadow-sm">
                 <Skeleton className="h-48 w-full" />
                 <div className="p-5 space-y-3">
@@ -71,61 +73,64 @@ export function ClubsPreview() {
                   </div>
                 </div>
               </div>
-            ))
-          )}
-          {!isLoading && clubs.map((club: typeof clubs[0], index: number) => (
-            <Link
-              key={club.id}
-              to={`/clubs/${club.id}`}
-              className="group block rounded-2xl bg-card border border-border/50 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              {/* Image */}
-              <div className="relative h-48 overflow-hidden">
-                <img
-                  src={club.image}
-                  alt={club.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                {club.isRecruiting && (
-                  <div className="absolute top-3 right-3">
-                    <Badge className="gradient-accent text-accent-foreground border-0">
-                      Đang tuyển
+            ))}
+          </div>
+        )}
+
+        {/* Marquee effect for featured clubs */}
+        {!isLoading && (
+          <Marquee className="[--gap:24px] [--duration:30s]" pauseOnHover applyMask>
+            {clubs.map((club: any) => (
+              <Link
+                key={club.id}
+                to={`/clubs/${club.id}`}
+                className="group block w-[280px] sm:w-[320px] shrink-0 rounded-2xl bg-card border border-border/50 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+              >
+                <div className="relative h-48 overflow-hidden">
+                  <img
+                    src={club.image}
+                    alt={club.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  {club.isRecruiting && (
+                    <div className="absolute top-3 right-3">
+                      <Badge className="gradient-accent text-accent-foreground border-0">
+                        Đang tuyển
+                      </Badge>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <Badge variant="secondary" className={categoryColors[club.category]}>
+                      {club.category}
                     </Badge>
                   </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-                <div className="absolute bottom-3 left-3 right-3">
-                  <Badge variant="secondary" className={categoryColors[club.category]}>
-                    {club.category}
-                  </Badge>
                 </div>
-              </div>
 
-              {/* Content */}
-              <div className="p-5">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
-                    {club.name}
-                  </h3>
-                  <div className="flex items-center gap-1 text-sm text-warning">
-                    <Star className="h-4 w-4 fill-current" />
-                    {club.rating}
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
+                      {club.name}
+                    </h3>
+                    <div className="flex items-center gap-1 text-sm text-warning">
+                      <Star className="h-4 w-4 fill-current" />
+                      {club.rating}
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                    {club.description}
+                  </p>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-4 w-4" />
+                      {club.members} thành viên
+                    </div>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                  {club.description}
-                </p>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    {club.members} thành viên
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+              </Link>
+            ))}
+          </Marquee>
+        )}
       </div>
     </section>
   );
