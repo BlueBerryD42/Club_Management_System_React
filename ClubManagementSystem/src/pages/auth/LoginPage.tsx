@@ -59,6 +59,19 @@ const Login = () => {
       
       console.log('Login response:', response);
       console.log('Response data:', response.data);
+      console.log('Response data type:', typeof response.data);
+      console.log('Response headers:', response.headers);
+      
+      // Check if response.data is a string (HTML from ngrok warning)
+      if (typeof response.data === 'string') {
+        console.error('❌ Received HTML instead of JSON! Response:', response.data.substring(0, 200));
+        toast({
+          variant: "destructive",
+          title: "Đăng nhập thất bại",
+          description: "Lỗi kết nối server. Vui lòng thử lại.",
+        });
+        return;
+      }
       
       if (response.data.success) {
         const roleRaw = (response.data.user.role || '').toString().toUpperCase();
