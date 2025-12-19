@@ -63,8 +63,9 @@ const Login = () => {
       console.log('Response headers:', response.headers);
       
       // Check if response.data is a string (HTML from ngrok warning)
-      if (typeof response.data === 'string') {
-        console.error('❌ Received HTML instead of JSON! Response:', response.data.substring(0, 200));
+      const responseData = response.data as any;
+      if (typeof responseData === 'string') {
+        console.error('❌ Received HTML instead of JSON! Response:', responseData.substring(0, 200));
         toast({
           variant: "destructive",
           title: "Đăng nhập thất bại",
@@ -73,13 +74,13 @@ const Login = () => {
         return;
       }
       
-      if (response.data.success) {
-        const roleRaw = (response.data.user.role || '').toString().toUpperCase();
+      if (responseData.success) {
+        const roleRaw = (responseData.user.role || '').toString().toUpperCase();
         const normalizedRole: 'ADMIN' | 'USER' = roleRaw === 'ADMIN' ? 'ADMIN' : 'USER';
 
         dispatch(setCredentials({
-          token: response.data.accessToken,
-          user: { ...response.data.user, role: normalizedRole },
+          token: responseData.accessToken,
+          user: { ...responseData.user, role: normalizedRole },
         }));
 
         toast({
