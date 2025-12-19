@@ -601,35 +601,42 @@ const UserListPage = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.map((user: User) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.studentCode || '-'}</TableCell>
-                      <TableCell>{user.phone || '-'}</TableCell>
+                    <TableRow key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                      <TableCell className="font-medium text-slate-900">{user.name}</TableCell>
+                      <TableCell className="text-slate-600">{user.email}</TableCell>
+                      <TableCell className="text-slate-600">{user.studentCode || '-'}</TableCell>
+                      <TableCell className="text-slate-600">{user.phone || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === 'System Admin' ? 'destructive' : 'outline'}>
+                        <Badge className={`rounded-full ${user.role === 'ADMIN'
+                            ? 'bg-red-100 text-red-700 hover:bg-red-100'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-100'
+                          }`}>
                           {user.role}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                        <Badge className={`rounded-full ${user.status === 'active'
+                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-100'
+                          }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${user.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                           {user.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
                         </Badge>
                       </TableCell>
-                      <TableCell>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</TableCell>
+                      <TableCell className="text-slate-600">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="rounded-xl w-48">
                             <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
                             <DropdownMenuItem
                               onClick={() => handleEditUser(user)}
                               disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
+                              className="cursor-pointer"
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Chỉnh sửa thông tin
@@ -637,7 +644,7 @@ const UserListPage = () => {
                             <DropdownMenuSeparator />
                             {user.status === 'active' ? (
                               <DropdownMenuItem
-                                className="text-destructive"
+                                className="text-red-600 cursor-pointer"
                                 onClick={() => handleToggleStatus(user.id, user.status)}
                                 disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
                               >
@@ -646,7 +653,7 @@ const UserListPage = () => {
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
-                                className="text-green-600"
+                                className="text-emerald-600 cursor-pointer"
                                 onClick={() => handleToggleStatus(user.id, user.status)}
                                 disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
                               >
@@ -657,6 +664,7 @@ const UserListPage = () => {
                             <DropdownMenuItem
                               onClick={() => handleResetPassword(user.id, user.name)}
                               disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
+                              className="cursor-pointer"
                             >
                               <KeyRound className="mr-2 h-4 w-4" />
                               Đặt lại mật khẩu

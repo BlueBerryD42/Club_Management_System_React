@@ -73,42 +73,42 @@ const AdminLayout = () => {
   );
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800">
+    <div className="flex flex-col h-full bg-white">
       {/* Logo Section */}
-      <div className="p-6 border-b border-white/10">
+      <div className="p-6 border-b bg-gradient-to-r from-primary/5 to-orange-50">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center shadow-lg shadow-primary/30">
             <span className="text-2xl">🎓</span>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">ClubHub</h1>
-            <p className="text-xs text-slate-400">Admin Portal</p>
+            <h1 className="text-lg font-bold text-slate-900">ClubHub</h1>
+            <p className="text-xs text-slate-500">Admin Portal</p>
           </div>
         </div>
       </div>
 
       {/* User Profile Section */}
-      <div className="p-4 mx-4 mt-4 rounded-2xl bg-white/5 backdrop-blur border border-white/10">
+      <div className="p-4 mx-4 mt-4 rounded-2xl bg-slate-50 border border-slate-100">
         <div className="flex items-center gap-3">
-          <Avatar className="h-12 w-12 border-2 border-primary/50">
+          <Avatar className="h-12 w-12 border-2 border-primary/30 shadow-sm">
             <AvatarImage src={user?.avatarUrl} />
             <AvatarFallback className="bg-gradient-to-br from-primary to-orange-400 text-white font-bold">
               {user?.fullName ? getInitials(user.fullName) : 'AD'}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
+            <p className="text-sm font-semibold text-slate-900 truncate">
               {user?.fullName || 'Admin User'}
             </p>
-            <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 mt-3">
-          <Badge className="bg-primary/20 text-primary border-0 text-xs">
+          <Badge className="bg-primary/15 text-primary border-0 text-xs font-medium">
             <Shield className="h-3 w-3 mr-1" />
             {user?.role || 'ADMIN'}
           </Badge>
-          <Badge variant="outline" className="text-emerald-400 border-emerald-400/30 text-xs">
+          <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 text-xs">
             ● Online
           </Badge>
         </div>
@@ -116,14 +116,14 @@ const AdminLayout = () => {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-3 mt-2">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 mb-3 mt-2">
           Quản lý
         </p>
         <NavItem to="/admin/dashboard" icon={LayoutDashboard} label="Tổng quan" />
         <NavItem to="/admin/clubs" icon={Tent} label="Câu lạc bộ" />
         <NavItem to="/admin/users" icon={Users} label="Người dùng" />
 
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-3 mt-6">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 mb-3 mt-6">
           Hệ thống
         </p>
         <NavItem to="/admin/notifications" icon={Bell} label="Thông báo" badge={3} />
@@ -131,16 +131,16 @@ const AdminLayout = () => {
       </nav>
 
       {/* Logout Section */}
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t bg-slate-50/50">
         <Button
           variant="ghost"
-          className="w-full justify-start text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl h-12"
+          className="w-full justify-start text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-xl h-12"
           onClick={handleLogout}
         >
           <LogOut className="h-5 w-5 mr-3" />
           Đăng xuất
         </Button>
-        <p className="text-xs text-slate-500 text-center mt-3">
+        <p className="text-xs text-slate-400 text-center mt-3">
           ClubHub Admin v1.0
         </p>
       </div>
