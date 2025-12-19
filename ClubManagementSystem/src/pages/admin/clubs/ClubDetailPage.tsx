@@ -131,20 +131,6 @@ const ClubDetailPage = () => {
                         <p className="text-sm text-muted-foreground mt-0.5">Quản lý thông tin và thành viên CLB.</p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    {isEditing ? (
-                        <>
-                            <Button variant="outline" onClick={() => setIsEditing(false)} className="rounded-xl">Hủy</Button>
-                            <Button onClick={handleSave} className="rounded-xl bg-primary hover:bg-primary/90">
-                                <Save className="mr-2 h-4 w-4" /> Lưu thay đổi
-                            </Button>
-                        </>
-                    ) : (
-                        <Button onClick={() => setIsEditing(true)} className="rounded-xl">
-                            <Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa
-                        </Button>
-                    )}
-                </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">

@@ -217,6 +217,19 @@ export const adminService = {
             responseType: 'blob'
         });
         return response;
+    },
+
+    /**
+     * Get audit log statistics
+     */
+    getAuditLogStats: async (params?: { days?: number; startDate?: string }) => {
+        const response = await apiClient.get('/admin/audit-logs/stats', { 
+            params: {
+                ...(params?.days ? { days: params.days } : {}),
+                ...(params?.startDate ? { startDate: params.startDate } : {})
+            }
+        });
+        return response.data;
     }
 };
 

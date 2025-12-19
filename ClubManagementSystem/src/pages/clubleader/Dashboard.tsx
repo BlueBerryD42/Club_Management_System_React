@@ -100,10 +100,42 @@ export default function ClubLeaderDashboard() {
   }
 
   const statCards = [
-    { title: "Tổng thành viên", value: stats.totalMembers, icon: Users, color: "text-primary" },
-    { title: "Thành viên hoạt động", value: stats.activeMembers, icon: TrendingUp, color: "text-success" },
-    { title: "Đơn chờ duyệt", value: stats.pendingRequests, icon: UserPlus, color: "text-warning" },
-    { title: "Sự kiện sắp tới", value: stats.upcomingEvents, icon: Calendar, color: "text-accent" },
+    {
+      title: "Tổng thành viên",
+      value: stats.totalMembers,
+      icon: Users,
+      gradient: "from-primary/10 via-primary/5 to-transparent",
+      bubble: "bg-primary/10",
+      iconBg: "bg-primary/20",
+      accent: "text-primary",
+    },
+    {
+      title: "Thành viên hoạt động",
+      value: stats.activeMembers,
+      icon: TrendingUp,
+      gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
+      bubble: "bg-emerald-500/10",
+      iconBg: "bg-emerald-500/20",
+      accent: "text-emerald-600",
+    },
+    {
+      title: "Đơn chờ duyệt",
+      value: stats.pendingRequests,
+      icon: UserPlus,
+      gradient: "from-amber-400/15 via-amber-400/10 to-transparent",
+      bubble: "bg-amber-400/15",
+      iconBg: "bg-amber-400/30",
+      accent: "text-amber-600",
+    },
+    {
+      title: "Sự kiện sắp tới",
+      value: stats.upcomingEvents,
+      icon: Calendar,
+      gradient: "from-blue-500/10 via-blue-500/5 to-transparent",
+      bubble: "bg-blue-500/10",
+      iconBg: "bg-blue-500/20",
+      accent: "text-blue-600",
+    },
   ];
 
   return (
@@ -117,14 +149,20 @@ export default function ClubLeaderDashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {statCards.map((stat, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
+            <Card
+              key={index}
+              className={`relative overflow-hidden border-0 bg-gradient-to-br ${stat.gradient} shadow-lg hover:shadow-xl transition-shadow`}
+            >
+              <div className={`absolute top-0 right-0 w-32 h-32 ${stat.bubble} rounded-full -translate-y-1/2 translate-x-1/2`} />
+              <CardContent className="p-6 relative">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-3xl font-bold mt-2">{stat.value}</p>
+                    <p className={`text-3xl font-bold mt-2 ${stat.accent}`}>{stat.value}</p>
                   </div>
-                  <stat.icon className={`h-10 w-10 ${stat.color} opacity-80`} />
+                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${stat.iconBg}`}>
+                    <stat.icon className={`h-6 w-6 ${stat.accent}`} />
+                  </div>
                 </div>
               </CardContent>
             </Card>

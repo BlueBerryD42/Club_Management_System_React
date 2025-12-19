@@ -19,12 +19,56 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+// Edit Club Schema
+const editClubSchema = z.object({
+  name: z.string().min(3, "Tên CLB phải có ít nhất 3 ký tự"),
+  description: z.string().min(20, "Mô tả phải chi tiết hơn (tối thiểu 20 ký tự)"),
+  slug: z.string().optional(),
+  logoUrl: z.string().url("Logo phải là URL hợp lệ").optional().or(z.literal("")),
+});
+
+type EditClubFormValues = z.infer<typeof editClubSchema>;
+
+interface Club {
+  id: string;
+  name: string;
+  description?: string;
+  slug: string;
+  category: string;
+  leader: string;
+  leaderAvatar?: string;
+  members: number;
+  status: 'active' | 'inactive';
+  logoUrl?: string;
+}
 
 const ClubListPage = () => {
   const navigate = useNavigate();
@@ -32,6 +76,7 @@ const ClubListPage = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [editClubDialog, setEditClubDialog] = useState<{ open: boolean; club: Club | null }>({ open: false, club: null });
 
   // Debounce search term
   useEffect(() => {
@@ -41,6 +86,18 @@ const ClubListPage = () => {
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Form for editing club
+  const editForm = useForm<EditClubFormValues>({
+    resolver: zodResolver(editClubSchema),
+    mode: "onChange",
+    defaultValues: {
+      name: "",
+      description: "",
+      slug: "",
+      logoUrl: "",
+    }
+  });
 
   // Fetch Clubs from backend API
   const { data: clubsData, isLoading, refetch } = useQuery({
@@ -55,6 +112,7 @@ const ClubListPage = () => {
   const clubs = clubsData?.data?.map((club: any) => ({
     id: club.id,
     name: club.name,
+    description: club.description,
     category: club.description?.substring(0, 50) || 'Chưa phân loại',
     leader: club.leader?.fullName || 'Chưa có',
     leaderAvatar: club.leader?.avatarUrl,
@@ -77,9 +135,61 @@ const ClubListPage = () => {
     }
   });
 
+  // Update Club Mutation
+  const updateClubMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: EditClubFormValues }) =>
+      clubApi.update(id, data),
+    onSuccess: (_res, variables) => {
+      // Close dialog
+      setEditClubDialog({ open: false, club: null });
+
+      // Optimistically update cache so UI reflects changes immediately
+      queryClient.setQueryData(['admin-clubs', debouncedSearch], (oldData: any) => {
+        if (!oldData?.data) return oldData;
+        const updatedList = oldData.data.map((club: any) => {
+          if (club.id !== variables.id) return club;
+          return {
+            ...club,
+            name: variables.data.name ?? club.name,
+            description: variables.data.description ?? club.description,
+            slug: variables.data.slug ?? club.slug,
+            logoUrl: variables.data.logoUrl ?? club.logoUrl,
+          };
+        });
+        return { ...oldData, data: updatedList };
+      });
+
+      // Force refetch to get canonical data from server
+      queryClient.invalidateQueries({ queryKey: ['admin-clubs'], exact: false });
+      queryClient.refetchQueries({ queryKey: ['admin-clubs'], exact: false });
+
+      toast({ title: "Thành công", description: "Thông tin CLB đã được cập nhật." });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.response?.data?.message || "Không thể cập nhật CLB.";
+      toast({ title: "Lỗi", description: errorMessage, variant: "destructive" });
+    }
+  });
+
   const handleToggleStatus = (id: number | string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     toggleStatusMutation.mutate({ id, status: newStatus });
+  };
+
+  const handleEditClub = (club: Club) => {
+    editForm.reset({
+      name: club.name,
+      description: club.description || "",
+      slug: club.slug,
+      logoUrl: club.logoUrl || "",
+    });
+    setEditClubDialog({ open: true, club });
+  };
+
+  const handleSaveEditClub = (data: EditClubFormValues) => {
+    if (editClubDialog.club) {
+      updateClubMutation.mutate({ id: editClubDialog.club.id, data });
+    }
   };
 
   const getInitials = (name: string) => {
@@ -268,7 +378,10 @@ const ClubListPage = () => {
                           <Eye className="h-4 w-4 mr-2" />
                           Xem chi tiết
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer">
+                        <DropdownMenuItem
+                          onClick={() => handleEditClub(club as Club)}
+                          className="cursor-pointer"
+                        >
                           <Edit className="h-4 w-4 mr-2" />
                           Chỉnh sửa
                         </DropdownMenuItem>
@@ -298,6 +411,103 @@ const ClubListPage = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Club Dialog */}
+      <Dialog open={editClubDialog.open} onOpenChange={(open) => setEditClubDialog({ ...editClubDialog, open })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chỉnh sửa Câu lạc bộ</DialogTitle>
+            <DialogDescription>
+              Cập nhật thông tin cho {editClubDialog.club?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleSaveEditClub)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tên Câu lạc bộ <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ví dụ: CLB Guitar FPT" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mô tả <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Mô tả chi tiết về CLB..." className="min-h-[120px]" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="slug"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Slug (URL tùy chỉnh)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ví dụ: clb-lop-thay-sang" {...field} />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      Để trống nếu muốn tự động tạo từ tên CLB
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="logoUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Logo URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://..." {...field} />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      Dán đường dẫn ảnh logo (để trống nếu chưa có)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditClubDialog({ open: false, club: null })}
+                  disabled={updateClubMutation.isPending}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateClubMutation.isPending}
+                >
+                  {updateClubMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    'Lưu thay đổi'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

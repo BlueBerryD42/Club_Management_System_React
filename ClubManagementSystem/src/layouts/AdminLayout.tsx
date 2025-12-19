@@ -23,6 +23,8 @@ import { useState, Fragment } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { adminService } from "@/services/admin.service";
 
 const AdminLayout = () => {
   const dispatch = useAppDispatch();
@@ -31,6 +33,25 @@ const AdminLayout = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Fetch audit log stats to show unread count since last viewed
+  const lastViewedAt = typeof window !== 'undefined' ? (localStorage.getItem('audit:lastViewedAt') || null) : null;
+  const { data: auditStats } = useQuery({
+    queryKey: ['admin-audit-stats', lastViewedAt],
+    queryFn: async () => {
+      try {
+        const params = lastViewedAt ? { startDate: lastViewedAt } : { days: 7 };
+        const response = await adminService.getAuditLogStats(params);
+        return response;
+      } catch (error) {
+        console.error('Failed to fetch audit stats:', error);
+        return { data: { total: 0 } } as any;
+      }
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  const auditLogCount = (auditStats as any)?.data?.total || 0;
 
   const handleLogout = () => {
     dispatch(logout());
@@ -127,7 +148,7 @@ const AdminLayout = () => {
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 mb-3 mt-6">
           Hệ thống
         </p>
-        <NavItem to="/admin/notifications" icon={Bell} label="Thông báo" badge={3} />
+        <NavItem to="/admin/audit" icon={Bell} label="Thông báo" badge={auditLogCount > 0 ? auditLogCount : undefined} />
         <NavItem to="/admin/settings" icon={Settings} label="Cài đặt" />
       </nav>
 
@@ -232,11 +253,18 @@ const AdminLayout = () => {
 
           {/* Right side of header */}
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="rounded-xl relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-xl relative"
+              onClick={() => navigate('/admin/audit')}
+            >
               <Bell className="h-5 w-5 text-slate-500" />
-              <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full text-[10px] text-white flex items-center justify-center">
-                3
-              </span>
+              {auditLogCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full text-[10px] text-white flex items-center justify-center font-bold">
+                  {auditLogCount > 99 ? '99+' : auditLogCount}
+                </span>
+              )}
             </Button>
             <div className="h-8 w-px bg-slate-200" />
             <div className="flex items-center gap-2">

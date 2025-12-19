@@ -20,6 +20,7 @@ export interface UpdateClubPayload {
     slug?: string;
     category?: string;
     status?: string;
+    logoUrl?: string;
 }
 
 export const clubApi = {

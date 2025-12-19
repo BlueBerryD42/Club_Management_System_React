@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { adminService } from "@/services/admin.service";
 import {
@@ -32,6 +32,13 @@ const AuditLogPage = () => {
     const [live, setLive] = useState(true);
     const limit = 50;
     const { toast } = useToast();
+
+    // Mark audit logs as viewed when opening the page
+    useEffect(() => {
+        try {
+            localStorage.setItem('audit:lastViewedAt', new Date().toISOString());
+        } catch (_) {}
+    }, []);
 
     const { data, isLoading, refetch } = useQuery({
         queryKey: ['admin-audit-logs', actionFilter, searchTerm, page],
@@ -183,30 +190,55 @@ const AuditLogPage = () => {
                                     <TableHead>Người thực hiện</TableHead>
                                     <TableHead>Hành động</TableHead>
                                     <TableHead>Chi tiết</TableHead>
-                                    <TableHead>IP</TableHead>
+                                    <TableHead>IP Address</TableHead>
+                                    <TableHead>Thiết bị/Trình duyệt</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {logs.map((log) => (
-                                    <TableRow key={log.id}>
-                                        <TableCell className="whitespace-nowrap text-muted-foreground">
-                                            {new Date(log.createdAt).toLocaleString('vi-VN')}
-                                        </TableCell>
-                                        <TableCell className="font-medium">
-                                            {log.userEmail || 'system'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{log.action}</Badge>
-                                        </TableCell>
-                                        <TableCell>{log.details || '-'}</TableCell>
-                                        <TableCell className="text-muted-foreground text-sm">
-                                            {log.ipAddress || '-'}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                {logs.map((log) => {
+                                    // Parse user agent to show device info
+                                    const userAgent = log.userAgent || '';
+                                    const isMobile = /Mobile|Android|iPhone|iPad/i.test(userAgent);
+                                    // Check Edge first before Chrome (Edge contains "Chrome" in UA)
+                                    const isEdge = /Edg/i.test(userAgent);
+                                    const isFirefox = /Firefox/i.test(userAgent);
+                                    const isSafari = /Safari/i.test(userAgent) && !/Chrome/i.test(userAgent);
+                                    const isChrome = /Chrome/i.test(userAgent) && !isEdge;
+                                    
+                                    const browserIcon = isEdge ? '🔷' : isChrome ? '🌐' : isFirefox ? '🦊' : isSafari ? '🧭' : '💻';
+                                    const deviceType = isMobile ? '📱 Mobile' : '🖥️ Desktop';
+
+                                    return (
+                                        <TableRow key={log.id}>
+                                            <TableCell className="whitespace-nowrap text-muted-foreground">
+                                                {new Date(log.createdAt).toLocaleString('vi-VN')}
+                                            </TableCell>
+                                            <TableCell className="font-medium">
+                                                {log.userEmail || 'system'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline">{log.action}</Badge>
+                                            </TableCell>
+                                            <TableCell>{log.details || '-'}</TableCell>
+                                            <TableCell className="text-muted-foreground text-sm font-mono">
+                                                {log.ipAddress || '-'}
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground text-xs">
+                                                {userAgent ? (
+                                                    <div className="flex flex-col gap-1">
+                                                        <span>{browserIcon} {deviceType}</span>
+                                                        <span className="text-[10px] text-slate-400 truncate max-w-[200px]" title={userAgent}>
+                                                            {userAgent}
+                                                        </span>
+                                                    </div>
+                                                ) : '-'}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                                 {logs.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                             Không tìm thấy nhật ký nào.
                                         </TableCell>
                                     </TableRow>
