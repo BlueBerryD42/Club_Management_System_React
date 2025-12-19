@@ -6,12 +6,12 @@ import * as z from 'zod';
 import { adminService } from "@/services/admin.service";
 import { clubApi } from "@/services/club.service";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,28 +21,28 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 
@@ -146,17 +146,17 @@ const getRoleLabel = (role: string): string => {
 };
 
 const PillButton = ({ label, isActive, onClick }: PillButtonProps) => (
-    <button
-        onClick={onClick}
-        className={cn(
-            "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
-            isActive 
-                ? "bg-primary text-primary-foreground shadow-sm" 
-                : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-        )}
-    >
-        {label}
-    </button>
+  <button
+    onClick={onClick}
+    className={cn(
+      "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
+      isActive
+        ? "bg-primary text-primary-foreground shadow-sm"
+        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+    )}
+  >
+    {label}
+  </button>
 );
 
 const UserListPage = () => {
@@ -187,7 +187,7 @@ const UserListPage = () => {
     queryFn: async () => {
       try {
         const res = await adminService.getUsers();
-        
+
         // /api/users/getallprofile returns: { users: [...], count: number }
         // Backend fields: id, email, fullName, phone, studentCode, isActive, createdAt
         let userList = [];
@@ -202,7 +202,7 @@ const UserListPage = () => {
         } else if (res.data?.data && Array.isArray(res.data.data)) {
           userList = res.data.data;
         }
-        
+
         // Map backend fields to frontend User interface
         // Backend returns: fullName, isActive (boolean)
         // Frontend expects: name, status ('active' | 'suspended')
@@ -226,33 +226,33 @@ const UserListPage = () => {
   });
 
   const users = usersData || [];
-  
+
   // Fetch all clubs
   const { data: clubs = [], isLoading: clubsLoading } = useQuery({
     queryKey: ['admin-clubs'],
     queryFn: async () => {
-        try {
-            const res = await clubApi.getAll({ limit: 100 });
-            let clubData = [];
-            if (Array.isArray(res)) {
-                clubData = res;
-            } else if (Array.isArray(res.data)) {
-                clubData = res.data;
-            } else if (res.data?.data && Array.isArray(res.data.data)) {
-                clubData = res.data.data;
-            }
-            
-            return clubData.map((c: any) => ({
-              id: c.id,
-              name: c.name || c.fullName || 'Unknown',
-              description: c.description,
-              slug: c.slug,
-              members: []
-            })) as Club[];
-        } catch (error) {
-            console.error('Error fetching clubs:', error);
-            throw error;
+      try {
+        const res = await clubApi.getAll({ limit: 100 });
+        let clubData = [];
+        if (Array.isArray(res)) {
+          clubData = res;
+        } else if (Array.isArray(res.data)) {
+          clubData = res.data;
+        } else if (res.data?.data && Array.isArray(res.data.data)) {
+          clubData = res.data.data;
         }
+
+        return clubData.map((c: any) => ({
+          id: c.id,
+          name: c.name || c.fullName || 'Unknown',
+          description: c.description,
+          slug: c.slug,
+          members: []
+        })) as Club[];
+      } catch (error) {
+        console.error('Error fetching clubs:', error);
+        throw error;
+      }
     }
   });
 
@@ -261,53 +261,53 @@ const UserListPage = () => {
     queryKey: ['club-members', clubs.map(c => c.id).join(',')],
     enabled: clubs.length > 0,
     queryFn: async () => {
-        try {
-            const clubsWithData = await Promise.all(
-                clubs.map(async (club) => {
-                    try {
-                        const res = await clubApi.getMembers(club.id, { limit: 100 });
-                        
-                        // Handle different response structures
-                        // API returns: { success: true, data: [...], pagination: {...} }
-                        // apiClient.get() returns response.data, so res = { success: true, data: [...], pagination: {...} }
-                        let members = [];
-                        if (Array.isArray(res)) {
-                            members = res;
-                        } else if (Array.isArray(res.data)) {
-                            members = res.data;
-                        } else if (res.data?.data && Array.isArray(res.data.data)) {
-                            members = res.data.data;
-                        }
-                        
-                        return {
-                            ...club,
-                            members: members.map((m: any) => ({
-                              id: m.id,
-                              userId: m.userId,
-                              role: m.role || 'MEMBER',
-                              status: m.status || 'ACTIVE',
-                              joinedAt: m.joinedAt,
-                              user: m.user || {
-                                id: m.userId,
-                                email: '',
-                                fullName: '',
-                                studentCode: '',
-                                phone: '',
-                                avatarUrl: null
-                              }
-                            }))
-                        };
-                    } catch (err) {
-                        console.error(`Error fetching members for club ${club.id}:`, err);
-                        return { ...club, members: [] };
-                    }
-                })
-            );
-            return clubsWithData;
-        } catch (error) {
-            console.error('Error fetching members:', error);
-            throw error;
-        }
+      try {
+        const clubsWithData = await Promise.all(
+          clubs.map(async (club) => {
+            try {
+              const res = await clubApi.getMembers(club.id, { limit: 100 });
+
+              // Handle different response structures
+              // API returns: { success: true, data: [...], pagination: {...} }
+              // apiClient.get() returns response.data, so res = { success: true, data: [...], pagination: {...} }
+              let members = [];
+              if (Array.isArray(res)) {
+                members = res;
+              } else if (Array.isArray(res.data)) {
+                members = res.data;
+              } else if (res.data?.data && Array.isArray(res.data.data)) {
+                members = res.data.data;
+              }
+
+              return {
+                ...club,
+                members: members.map((m: any) => ({
+                  id: m.id,
+                  userId: m.userId,
+                  role: m.role || 'MEMBER',
+                  status: m.status || 'ACTIVE',
+                  joinedAt: m.joinedAt,
+                  user: m.user || {
+                    id: m.userId,
+                    email: '',
+                    fullName: '',
+                    studentCode: '',
+                    phone: '',
+                    avatarUrl: null
+                  }
+                }))
+              };
+            } catch (err) {
+              console.error(`Error fetching members for club ${club.id}:`, err);
+              return { ...club, members: [] };
+            }
+          })
+        );
+        return clubsWithData;
+      } catch (error) {
+        console.error('Error fetching members:', error);
+        throw error;
+      }
     }
   });
 
@@ -330,8 +330,8 @@ const UserListPage = () => {
     onSuccess: (data) => {
       setResetPasswordDialog({ open: false, userId: null, userName: '' });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      const message = data?.data?.newPassword 
-        ? `Mật khẩu mới: ${data.data.newPassword}` 
+      const message = data?.data?.newPassword
+        ? `Mật khẩu mới: ${data.data.newPassword}`
         : "Mật khẩu đã được đặt lại thành công.";
       toast({ title: "Thành công", description: message });
     },
@@ -393,7 +393,7 @@ const UserListPage = () => {
         fullName: data.fullName.trim(),
         email: data.email.trim().toLowerCase(),
       };
-      
+
       // Only include optional fields if they have values
       if (data.phone?.trim()) {
         payload.phone = data.phone.trim();
@@ -401,7 +401,7 @@ const UserListPage = () => {
       if (data.studentCode?.trim()) {
         payload.studentCode = data.studentCode.trim().toUpperCase();
       }
-      
+
       console.log('Updating user:', { id: editUserDialog.user.id, payload });
       updateUserMutation.mutate({ id: editUserDialog.user.id, data: payload as EditUserFormValues });
     }
@@ -413,11 +413,11 @@ const UserListPage = () => {
       // Text Search - check both name and email (skip if search is empty)
       if (searchTerm.trim()) {
         const searchLower = searchTerm.toLowerCase();
-        const matchesSearch = 
-          (user.name && user.name.toLowerCase().includes(searchLower)) || 
+        const matchesSearch =
+          (user.name && user.name.toLowerCase().includes(searchLower)) ||
           (user.email && user.email.toLowerCase().includes(searchLower)) ||
           (user.studentCode && user.studentCode.toLowerCase().includes(searchLower));
-        
+
         if (!matchesSearch) return false;
       }
 
@@ -425,7 +425,7 @@ const UserListPage = () => {
       if (filter === "all") return true;
       if (filter === "active") return user.status === "active";
       if (filter === "suspended") return user.status === "suspended";
-      
+
       return true;
     })
     .sort((a: User, b: User) => {
@@ -446,39 +446,39 @@ const UserListPage = () => {
 
   // Filter members based on search and status filter
   const filteredClubs = clubsWithMembers.map(club => {
-      if (!club.members) return club;
-      
-      const filtered = club.members.filter((member: ClubMember) => {
-          // Text search (skip if search is empty)
-          if (searchTerm.trim()) {
-              const searchLower = searchTerm.toLowerCase();
-              const matchesSearch = 
-                  (member.user?.fullName && member.user.fullName.toLowerCase().includes(searchLower)) ||
-                  (member.user?.email && member.user.email.toLowerCase().includes(searchLower)) ||
-                  (member.user?.studentCode && member.user.studentCode.toLowerCase().includes(searchLower));
-              
-              if (!matchesSearch) return false;
-          }
+    if (!club.members) return club;
 
-          // Status filter
-          if (filter === "all") return true;
-          if (filter === "active") return member.status === "ACTIVE";
-          if (filter === "pending") return member.status !== "ACTIVE";
-          
-          return true;
-      });
+    const filtered = club.members.filter((member: ClubMember) => {
+      // Text search (skip if search is empty)
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch =
+          (member.user?.fullName && member.user.fullName.toLowerCase().includes(searchLower)) ||
+          (member.user?.email && member.user.email.toLowerCase().includes(searchLower)) ||
+          (member.user?.studentCode && member.user.studentCode.toLowerCase().includes(searchLower));
 
-      return { ...club, members: filtered };
+        if (!matchesSearch) return false;
+      }
+
+      // Status filter
+      if (filter === "all") return true;
+      if (filter === "active") return member.status === "ACTIVE";
+      if (filter === "pending") return member.status !== "ACTIVE";
+
+      return true;
+    });
+
+    return { ...club, members: filtered };
   }).filter(club => club.members && club.members.length > 0);
 
   const toggleClub = (clubId: string) => {
-      const newExpanded = new Set(expandedClubs);
-      if (newExpanded.has(clubId)) {
-          newExpanded.delete(clubId);
-      } else {
-          newExpanded.add(clubId);
-      }
-      setExpandedClubs(newExpanded);
+    const newExpanded = new Set(expandedClubs);
+    if (newExpanded.has(clubId)) {
+      newExpanded.delete(clubId);
+    } else {
+      newExpanded.add(clubId);
+    }
+    setExpandedClubs(newExpanded);
   };
 
   const isLoadingUsers = usersLoading;
@@ -486,25 +486,38 @@ const UserListPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Quản lý Người dùng</h2>
-        <p className="text-muted-foreground">Quản lý tất cả người dùng và thành viên câu lạc bộ.</p>
+      {/* Premium Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+            Quản lý Người dùng
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Quản lý tất cả người dùng và thành viên câu lạc bộ trong hệ thống.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="rounded-full px-4 py-2 bg-primary/10 text-primary">
+            <Users className="h-4 w-4 mr-2" />
+            {users.length} người dùng
+          </Badge>
+        </div>
       </div>
 
       <Tabs defaultValue="all-users" className="w-full">
-        <TabsList>
-          <TabsTrigger value="all-users" className="flex items-center gap-2">
+        <TabsList className="bg-slate-100 p-1 rounded-xl">
+          <TabsTrigger value="all-users" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <Users className="h-4 w-4" />
             Tất cả người dùng
           </TabsTrigger>
-          <TabsTrigger value="members-by-club" className="flex items-center gap-2">
+          <TabsTrigger value="members-by-club" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
             <Users className="h-4 w-4" />
             Thành viên theo CLB
           </TabsTrigger>
         </TabsList>
 
         {/* All Users Tab */}
-        <TabsContent value="all-users" className="space-y-4">
+        <TabsContent value="all-users" className="space-y-4 mt-6">
           <div className="flex flex-col gap-4">
             {/* Search, Filters, and Sort Row */}
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -512,9 +525,9 @@ const UserListPage = () => {
                 {/* Search Bar */}
                 <div className="relative w-full sm:w-auto sm:max-w-sm">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Tìm kiếm tên, email..." 
-                    className="pl-8" 
+                  <Input
+                    placeholder="Tìm kiếm tên, email..."
+                    className="pl-8"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -522,18 +535,18 @@ const UserListPage = () => {
 
                 {/* Filter Buttons */}
                 <div className="flex flex-wrap gap-2">
-                  <PillButton 
-                    label="Tất cả" 
+                  <PillButton
+                    label="Tất cả"
                     isActive={filter === "all"}
                     onClick={() => setFilter("all")}
                   />
-                  <PillButton 
-                    label="Hoạt động" 
+                  <PillButton
+                    label="Hoạt động"
                     isActive={filter === "active"}
                     onClick={() => setFilter("active")}
                   />
-                  <PillButton 
-                    label="Đã khóa" 
+                  <PillButton
+                    label="Đã khóa"
                     isActive={filter === "suspended"}
                     onClick={() => setFilter("suspended")}
                   />
@@ -572,51 +585,58 @@ const UserListPage = () => {
           )}
 
           {!isLoadingUsers && filteredUsers.length > 0 && (
-            <div className="rounded-md border bg-white">
+            <div className="rounded-xl border-0 shadow-lg bg-white overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Họ tên</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>MSSV</TableHead>
-                    <TableHead>SĐT</TableHead>
-                    <TableHead>Vai trò</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Ngày tạo</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
+                  <TableRow className="bg-slate-50">
+                    <TableHead className="font-semibold">Họ tên</TableHead>
+                    <TableHead className="font-semibold">Email</TableHead>
+                    <TableHead className="font-semibold">MSSV</TableHead>
+                    <TableHead className="font-semibold">SĐT</TableHead>
+                    <TableHead className="font-semibold">Vai trò</TableHead>
+                    <TableHead className="font-semibold">Trạng thái</TableHead>
+                    <TableHead className="font-semibold">Ngày tạo</TableHead>
+                    <TableHead className="text-right font-semibold">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.map((user: User) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.studentCode || '-'}</TableCell>
-                      <TableCell>{user.phone || '-'}</TableCell>
+                    <TableRow key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                      <TableCell className="font-medium text-slate-900">{user.name}</TableCell>
+                      <TableCell className="text-slate-600">{user.email}</TableCell>
+                      <TableCell className="text-slate-600">{user.studentCode || '-'}</TableCell>
+                      <TableCell className="text-slate-600">{user.phone || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant={user.role === 'System Admin' ? 'destructive' : 'outline'}>
+                        <Badge className={`rounded-full ${user.role === 'ADMIN'
+                            ? 'bg-red-100 text-red-700 hover:bg-red-100'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-100'
+                          }`}>
                           {user.role}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                        <Badge className={`rounded-full ${user.status === 'active'
+                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-100'
+                          }`}>
+                          <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${user.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                           {user.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
                         </Badge>
                       </TableCell>
-                      <TableCell>{new Date(user.createdAt).toLocaleDateString('vi-VN')}</TableCell>
+                      <TableCell className="text-slate-600">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="rounded-xl w-48">
                             <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
                             <DropdownMenuItem
                               onClick={() => handleEditUser(user)}
                               disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
+                              className="cursor-pointer"
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               Chỉnh sửa thông tin
@@ -624,7 +644,7 @@ const UserListPage = () => {
                             <DropdownMenuSeparator />
                             {user.status === 'active' ? (
                               <DropdownMenuItem
-                                className="text-destructive"
+                                className="text-red-600 cursor-pointer"
                                 onClick={() => handleToggleStatus(user.id, user.status)}
                                 disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
                               >
@@ -633,7 +653,7 @@ const UserListPage = () => {
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
-                                className="text-green-600"
+                                className="text-emerald-600 cursor-pointer"
                                 onClick={() => handleToggleStatus(user.id, user.status)}
                                 disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
                               >
@@ -644,6 +664,7 @@ const UserListPage = () => {
                             <DropdownMenuItem
                               onClick={() => handleResetPassword(user.id, user.name)}
                               disabled={toggleStatusMutation.isPending || resetPasswordMutation.isPending || updateUserMutation.isPending}
+                              className="cursor-pointer"
                             >
                               <KeyRound className="mr-2 h-4 w-4" />
                               Đặt lại mật khẩu
@@ -662,18 +683,18 @@ const UserListPage = () => {
         {/* Members by Club Tab */}
         <TabsContent value="members-by-club" className="space-y-4">
           <div className="flex flex-wrap gap-2 mb-4">
-            <PillButton 
-              label="Tất cả" 
+            <PillButton
+              label="Tất cả"
               isActive={filter === "all"}
               onClick={() => setFilter("all")}
             />
-            <PillButton 
-              label="Đang hoạt động" 
+            <PillButton
+              label="Đang hoạt động"
               isActive={filter === "active"}
               onClick={() => setFilter("active")}
             />
-            <PillButton 
-              label="Chưa kích hoạt" 
+            <PillButton
+              label="Chưa kích hoạt"
               isActive={filter === "pending"}
               onClick={() => setFilter("pending")}
             />
@@ -772,19 +793,19 @@ const UserListPage = () => {
           <DialogHeader>
             <DialogTitle>Đặt lại mật khẩu</DialogTitle>
             <DialogDescription>
-              Bạn có chắc chắn muốn đặt lại mật khẩu cho người dùng <strong>{resetPasswordDialog.userName}</strong>? 
+              Bạn có chắc chắn muốn đặt lại mật khẩu cho người dùng <strong>{resetPasswordDialog.userName}</strong>?
               Mật khẩu mới sẽ được tạo tự động và gửi đến email của người dùng.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setResetPasswordDialog({ open: false, userId: null, userName: '' })}
               disabled={resetPasswordMutation.isPending}
             >
               Hủy
             </Button>
-            <Button 
+            <Button
               onClick={handleConfirmResetPassword}
               disabled={resetPasswordMutation.isPending}
             >

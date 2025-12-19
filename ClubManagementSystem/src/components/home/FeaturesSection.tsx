@@ -80,13 +80,13 @@ export function FeaturesSection() {
             return (
               <div
                 key={feature.title}
-                className="group p-6 rounded-2xl bg-card border border-border/50 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                className="group p-6 rounded-2xl bg-card border border-border/50 shadow-sm hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-2 hover:border-primary/30"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <div className={`h-12 w-12 rounded-xl ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                <div className={`h-12 w-12 rounded-xl ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 group-hover:shadow-lg`}>
                   <Icon className={`h-6 w-6 ${feature.iconClass || "text-primary-foreground"}`} />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
+                <h3 className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors">{feature.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {feature.description}
                 </p>

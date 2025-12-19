@@ -118,61 +118,79 @@ const ClubDetailPage = () => {
 
     return (
         <div className="space-y-6 pb-20">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate('/admin/clubs')}>
-                    <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Chi tiết Câu lạc bộ</h2>
-                    <p className="text-muted-foreground text-sm">Quản lý thông tin và thành viên.</p>
+            {/* Premium Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b">
+                <div className="flex items-center gap-4">
+                    <Button variant="outline" size="icon" onClick={() => navigate('/admin/clubs')} className="rounded-xl hover:bg-slate-100">
+                        <ArrowLeft className="h-5 w-5" />
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+                            Chi tiết Câu lạc bộ
+                        </h1>
+                        <p className="text-sm text-muted-foreground mt-0.5">Quản lý thông tin và thành viên CLB.</p>
+                    </div>
                 </div>
-                <div className="ml-auto flex gap-2">
+                <div className="flex gap-2">
                     {isEditing ? (
                         <>
-                            <Button variant="outline" onClick={() => setIsEditing(false)}>Hủy</Button>
-                            <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" /> Lưu thay đổi</Button>
+                            <Button variant="outline" onClick={() => setIsEditing(false)} className="rounded-xl">Hủy</Button>
+                            <Button onClick={handleSave} className="rounded-xl bg-primary hover:bg-primary/90">
+                                <Save className="mr-2 h-4 w-4" /> Lưu thay đổi
+                            </Button>
                         </>
                     ) : (
-                        <Button onClick={() => setIsEditing(true)}><Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa</Button>
+                        <Button onClick={() => setIsEditing(true)} className="rounded-xl">
+                            <Edit2 className="mr-2 h-4 w-4" /> Chỉnh sửa
+                        </Button>
                     )}
                 </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">
                 {/* Info Card */}
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Thông tin chung</CardTitle>
+                <Card className="md:col-span-2 border-0 shadow-lg">
+                    <CardHeader className="bg-slate-50 border-b rounded-t-xl">
+                        <CardTitle className="text-lg">Thông tin chung</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                    <CardContent className="space-y-4 pt-6">
+                        <div className="grid grid-cols-2 gap-6">
                             <div>
-                                <label className="text-sm font-medium text-muted-foreground">Tên CLB</label>
+                                <label className="text-sm font-medium text-slate-500">Tên CLB</label>
                                 {isEditing ? (
-                                    <Input value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} />
+                                    <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="mt-1 rounded-xl" />
                                 ) : (
-                                    <div className="text-lg font-semibold">{club.name}</div>
+                                    <div className="text-lg font-semibold text-slate-900 mt-1">{club.name}</div>
                                 )}
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-muted-foreground">Lĩnh vực</label>
-                                <div className="text-base">{club.category}</div>
+                                <label className="text-sm font-medium text-slate-500">Lĩnh vực</label>
+                                <div className="text-base text-slate-700 mt-1">{club.category}</div>
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-muted-foreground">Loại hình</label>
-                                <div><Badge variant="outline">{club.type === 'free' ? 'Miễn phí' : 'Có phí'}</Badge></div>
+                                <label className="text-sm font-medium text-slate-500">Loại hình</label>
+                                <div className="mt-1">
+                                    <Badge variant="outline" className="rounded-full bg-slate-50">
+                                        {club.type === 'free' ? 'Miễn phí' : 'Có phí'}
+                                    </Badge>
+                                </div>
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-muted-foreground">Trạng thái</label>
-                                <div><Badge className={club.status === 'active' ? 'bg-green-600' : 'bg-muted'}>{club.status}</Badge></div>
+                                <label className="text-sm font-medium text-slate-500">Trạng thái</label>
+                                <div className="mt-1">
+                                    <Badge className={`rounded-full ${club.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                                        <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${club.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                        {club.status === 'active' ? 'Hoạt động' : 'Tạm ngưng'}
+                                    </Badge>
+                                </div>
                             </div>
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-muted-foreground">Mô tả</label>
+                            <label className="text-sm font-medium text-slate-500">Mô tả</label>
                             {isEditing ? (
-                                <Input value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} />
+                                <Input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="mt-1 rounded-xl" />
                             ) : (
-                                <p className="text-sm mt-1">{club.description}</p>
+                                <p className="text-sm text-slate-600 mt-1">{club.description}</p>
                             )}
                         </div>
                     </CardContent>
@@ -180,27 +198,30 @@ const ClubDetailPage = () => {
 
                 {/* Key Roles */}
                 <div className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Ban chủ nhiệm</CardTitle>
+                    <Card className="border-0 shadow-lg">
+                        <CardHeader className="bg-gradient-to-r from-primary/5 to-orange-50 border-b rounded-t-xl">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Crown className="h-5 w-5 text-primary" />
+                                Ban chủ nhiệm
+                            </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <Avatar>
-                                    <AvatarFallback>L</AvatarFallback>
+                        <CardContent className="space-y-4 pt-4">
+                            <div className="flex items-center gap-3 p-3 rounded-xl bg-yellow-50 border border-yellow-100">
+                                <Avatar className="h-10 w-10 border-2 border-yellow-300">
+                                    <AvatarFallback className="bg-yellow-400 text-white font-bold">L</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <p className="text-sm font-medium">Chủ nhiệm</p>
-                                    <p className="text-sm text-muted-foreground">{club.leader.name}</p>
+                                    <p className="text-xs font-medium text-yellow-700">Chủ nhiệm</p>
+                                    <p className="text-sm font-semibold text-slate-900">{club.leader.name}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <Avatar>
-                                    <AvatarFallback>T</AvatarFallback>
+                            <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                                <Avatar className="h-10 w-10 border-2 border-emerald-300">
+                                    <AvatarFallback className="bg-emerald-500 text-white font-bold">T</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <p className="text-sm font-medium">Thủ quỹ</p>
-                                    <p className="text-sm text-muted-foreground">{club.treasurer.name}</p>
+                                    <p className="text-xs font-medium text-emerald-700">Thủ quỹ</p>
+                                    <p className="text-sm font-semibold text-slate-900">{club.treasurer.name}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -209,46 +230,72 @@ const ClubDetailPage = () => {
             </div>
 
             {/* Members List */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Danh sách thành viên ({club.membersCount})</CardTitle>
+            <Card className="border-0 shadow-lg overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <User className="h-5 w-5 text-slate-600" />
+                        Danh sách thành viên
+                        <Badge variant="secondary" className="ml-2 rounded-full">{club.membersCount}</Badge>
+                    </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                     <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead>Họ và Tên</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Vai trò</TableHead>
-                                <TableHead className="text-right">Thao tác</TableHead>
+                            <TableRow className="bg-slate-50/50">
+                                <TableHead className="font-semibold">Họ và Tên</TableHead>
+                                <TableHead className="font-semibold">Email</TableHead>
+                                <TableHead className="font-semibold">Vai trò</TableHead>
+                                <TableHead className="text-right font-semibold">Thao tác</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {club.members.map((member: { id: string; name: string; email: string; role: string; status: string }) => (
-                                <TableRow key={member.id}>
+                            {club.members.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center py-12">
+                                        <User className="h-10 w-10 mx-auto text-slate-300 mb-2" />
+                                        <p className="text-muted-foreground">Chưa có thành viên nào</p>
+                                    </TableCell>
+                                </TableRow>
+                            ) : club.members.map((member: { id: string; name: string; email: string; role: string; status: string }) => (
+                                <TableRow key={member.id} className="hover:bg-slate-50/50 transition-colors">
                                     <TableCell className="font-medium">{member.name}</TableCell>
-                                    <TableCell>{member.email}</TableCell>
+                                    <TableCell className="text-slate-600">{member.email}</TableCell>
                                     <TableCell>
-                                        {member.role === 'leader' && <Badge className="bg-yellow-500"><Crown className="w-3 h-3 mr-1"/> Chủ nhiệm</Badge>}
-                                        {member.role === 'treasurer' && <Badge className="bg-green-500"><Wallet className="w-3 h-3 mr-1"/> Thủ quỹ</Badge>}
-                                        {member.role === 'member' && <Badge variant="outline"><User className="w-3 h-3 mr-1"/> Thành viên</Badge>}
+                                        {member.role === 'leader' && (
+                                            <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 rounded-full">
+                                                <Crown className="w-3 h-3 mr-1" /> Chủ nhiệm
+                                            </Badge>
+                                        )}
+                                        {member.role === 'treasurer' && (
+                                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 rounded-full">
+                                                <Wallet className="w-3 h-3 mr-1" /> Thủ quỹ
+                                            </Badge>
+                                        )}
+                                        {member.role === 'member' && (
+                                            <Badge variant="outline" className="rounded-full">
+                                                <User className="w-3 h-3 mr-1" /> Thành viên
+                                            </Badge>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
+                                            <DropdownMenuContent align="end" className="rounded-xl w-48">
                                                 <DropdownMenuLabel>Phân quyền</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => handlePromote(member.id, 'leader')}>
+                                                <DropdownMenuItem onClick={() => handlePromote(member.id, 'leader')} className="cursor-pointer">
+                                                    <Crown className="h-4 w-4 mr-2 text-yellow-500" />
                                                     Bổ nhiệm Chủ nhiệm
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handlePromote(member.id, 'treasurer')}>
+                                                <DropdownMenuItem onClick={() => handlePromote(member.id, 'treasurer')} className="cursor-pointer">
+                                                    <Wallet className="h-4 w-4 mr-2 text-emerald-500" />
                                                     Bổ nhiệm Thủ quỹ
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handlePromote(member.id, 'member')}>
+                                                <DropdownMenuItem onClick={() => handlePromote(member.id, 'member')} className="cursor-pointer">
+                                                    <User className="h-4 w-4 mr-2" />
                                                     Xuống làm Thành viên
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
@@ -265,4 +312,5 @@ const ClubDetailPage = () => {
 };
 
 export default ClubDetailPage;
+
 

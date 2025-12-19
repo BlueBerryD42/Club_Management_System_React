@@ -114,12 +114,12 @@ const CreateClubPage = () => {
     const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
     const validExtensions = ['.xlsx', '.xls'];
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-    
+
     if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
-      toast({ 
-        title: "Lỗi file", 
-        description: "Vui lòng chọn file Excel (.xlsx hoặc .xls)", 
-        variant: "destructive" 
+      toast({
+        title: "Lỗi file",
+        description: "Vui lòng chọn file Excel (.xlsx hoặc .xls)",
+        variant: "destructive"
       });
       if (resetInput) resetInput();
       return false;
@@ -127,10 +127,10 @@ const CreateClubPage = () => {
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast({ 
-        title: "Lỗi file", 
-        description: "File không được vượt quá 5MB", 
-        variant: "destructive" 
+      toast({
+        title: "Lỗi file",
+        description: "File không được vượt quá 5MB",
+        variant: "destructive"
       });
       if (resetInput) resetInput();
       return false;
@@ -140,10 +140,10 @@ const CreateClubPage = () => {
     try {
       const parsed = await parseExcelFile(file);
       if (parsed.length === 0) {
-        toast({ 
-          title: "Lỗi file", 
-          description: "File Excel không có dữ liệu hợp lệ", 
-          variant: "destructive" 
+        toast({
+          title: "Lỗi file",
+          description: "File Excel không có dữ liệu hợp lệ",
+          variant: "destructive"
         });
         if (resetInput) resetInput();
         return false;
@@ -152,10 +152,10 @@ const CreateClubPage = () => {
       setParsedData(parsed);
       toast({ title: "Tải file thành công", description: `Đã chọn file: ${file.name} (${parsed.length} thành viên)` });
     } catch (error: any) {
-      toast({ 
-        title: "Lỗi đọc file", 
-        description: error.message || "Không thể đọc file Excel", 
-        variant: "destructive" 
+      toast({
+        title: "Lỗi đọc file",
+        description: error.message || "Không thể đọc file Excel",
+        variant: "destructive"
       });
       if (resetInput) resetInput();
       return false;
@@ -190,7 +190,7 @@ const CreateClubPage = () => {
 
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    
+
     await validateAndSetFile(file);
   };
 
@@ -233,8 +233,8 @@ const CreateClubPage = () => {
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
 
     // Create blob and download
-    const blob = new Blob([excelBuffer], { 
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    const blob = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -253,10 +253,10 @@ const CreateClubPage = () => {
 
   const onSubmit = async (data: CreateClubFormValues) => {
     if (!excelFile) {
-      toast({ 
-        title: "Thiếu file Excel", 
-        description: "Vui lòng tải lên file Excel danh sách thành viên", 
-        variant: "destructive" 
+      toast({
+        title: "Thiếu file Excel",
+        description: "Vui lòng tải lên file Excel danh sách thành viên",
+        variant: "destructive"
       });
       return;
     }
@@ -270,19 +270,19 @@ const CreateClubPage = () => {
         logoUrl: data.logoUrl,
         excelFile: excelFile
       });
-      
-      toast({ 
-        title: "Tạo CLB thành công!", 
-        description: response.data.message || "CLB đã được tạo và gửi email thông báo đến các thành viên." 
+
+      toast({
+        title: "Tạo CLB thành công!",
+        description: response.data.message || "CLB đã được tạo và gửi email thông báo đến các thành viên."
       });
-      
+
       navigate('/admin/clubs');
     } catch (error: any) {
       console.error("Error creating club:", error);
-      toast({ 
-        title: "Lỗi", 
-        description: error.response?.data?.message || "Đã xảy ra lỗi khi tạo CLB.", 
-        variant: "destructive" 
+      toast({
+        title: "Lỗi",
+        description: error.response?.data?.message || "Đã xảy ra lỗi khi tạo CLB.",
+        variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
@@ -291,258 +291,272 @@ const CreateClubPage = () => {
 
   return (
     <div className="space-y-6 pb-20">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/admin/clubs')}>
+      {/* Premium Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => navigate('/admin/clubs')} className="rounded-xl hover:bg-slate-100">
             <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-            <h2 className="text-3xl font-bold tracking-tight">Thành lập Câu lạc bộ</h2>
-            <p className="text-muted-foreground">Điền thông tin và danh sách thành viên sáng lập.</p>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+              Thành lập Câu lạc bộ
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Điền thông tin và danh sách thành viên sáng lập.</p>
+          </div>
         </div>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            
-            {/* Club Information */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Thông tin Câu lạc bộ</CardTitle>
-                    <CardDescription>Nhập thông tin cơ bản về CLB</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Tên Câu lạc bộ <span className="text-destructive">*</span></FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Ví dụ: CLB Guitar FPT" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
 
-                    <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Mô tả <span className="text-destructive">*</span></FormLabel>
-                                <FormControl>
-                                    <Textarea 
-                                        placeholder="Giới thiệu ngắn gọn về mục đích hoạt động của CLB..." 
-                                        className="min-h-[120px]" 
-                                        {...field} 
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+          {/* Club Information */}
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-orange-50 border-b">
+              <CardTitle className="text-lg">Thông tin Câu lạc bộ</CardTitle>
+              <CardDescription>Nhập thông tin cơ bản về CLB mới</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-700">Tên Câu lạc bộ <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ví dụ: CLB Guitar FPT" {...field} className="rounded-xl" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                    <FormField
-                        control={form.control}
-                        name="slug"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Slug (URL tùy chỉnh)</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Ví dụ: clb-guitar-fpt" {...field} />
-                                </FormControl>
-                                <FormDescription className="text-xs">
-                                    Để trống nếu muốn tự động tạo từ tên CLB
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-700">Mô tả <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Giới thiệu ngắn gọn về mục đích hoạt động của CLB..."
+                        className="min-h-[120px] rounded-xl"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                    <FormField
-                        control={form.control}
-                        name="logoUrl"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Logo URL</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="https://example.com/logo.png" {...field} />
-                                </FormControl>
-                                <FormDescription className="text-xs">
-                                    URL hình ảnh logo của CLB
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </CardContent>
-            </Card>
+              <div className="grid md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="slug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-700">Slug (URL tùy chỉnh)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ví dụ: clb-guitar-fpt" {...field} className="rounded-xl" />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        Để trống nếu muốn tự động tạo từ tên CLB
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {/* Excel Member Upload */}
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle>Danh sách thành viên <span className="text-destructive">*</span></CardTitle>
-                            <CardDescription>Tải lên file Excel chứa danh sách thành viên sáng lập</CardDescription>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleDownloadTemplate}
-                        >
-                            <Download className="h-4 w-4 mr-2" />
-                            Tải template
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* File Upload Area with Drag & Drop - Compact */}
-                    <div
-                        className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-                            isDragging
-                                ? 'border-primary bg-primary/5'
-                                : 'hover:border-primary'
-                        }`}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                    >
-                        <div className="flex items-center gap-4">
-                            <FileSpreadsheet className={`h-8 w-8 transition-colors flex-shrink-0 ${
-                                isDragging ? 'text-primary' : 'text-muted-foreground'
-                            }`} />
-                            <div className="flex-1 text-left">
-                                {isDragging ? (
-                                    <p className="text-primary font-medium text-sm">
-                                        Thả file vào đây để tải lên
-                                    </p>
-                                ) : (
-                                    <>
-                                        <div className="flex items-center gap-2">
-                                            <Button type="button" variant="secondary" size="sm" className="relative cursor-pointer">
-                                                <input 
-                                                    type="file" 
-                                                    accept=".xlsx, .xls" 
-                                                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                                                    onChange={handleFileUpload}
-                                                />
-                                                <Upload className="mr-2 h-3 w-3" />
-                                                Chọn file Excel
-                                            </Button>
-                                            <span className="text-xs text-muted-foreground">hoặc kéo thả</span>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            Hỗ trợ: .xlsx, .xls (tối đa 5MB)
-                                        </p>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                <FormField
+                  control={form.control}
+                  name="logoUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-slate-700">Logo URL</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://example.com/logo.png" {...field} className="rounded-xl" />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        URL hình ảnh logo của CLB
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-                    {/* File Preview - Compact */}
-                    {excelFile && (
-                        <>
-                            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
-                                <div className="flex items-center gap-3 flex-1">
-                                    <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium text-sm truncate">{excelFile.name}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {(excelFile.size / 1024).toFixed(2)} KB • {parsedData.length} thành viên
-                                        </p>
-                                    </div>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        setExcelFile(null);
-                                        setParsedData([]);
-                                    }}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-
-                            {/* Auto-display Preview Table */}
-                            {parsedData.length > 0 && (
-                                <div className="border rounded-lg overflow-hidden">
-                                    <div className="bg-muted/50 px-4 py-2 border-b">
-                                        <p className="text-sm font-medium">Xem trước dữ liệu ({parsedData.length} thành viên)</p>
-                                    </div>
-                                    <div className="max-h-[400px] overflow-auto">
-                                        <Table>
-                                            <TableHeader className="sticky top-0 bg-background">
-                                                <TableRow>
-                                                    <TableHead className="w-[200px]">Email</TableHead>
-                                                    <TableHead>Họ tên</TableHead>
-                                                    <TableHead>Mã SV</TableHead>
-                                                    <TableHead>SĐT</TableHead>
-                                                    <TableHead>Vai trò</TableHead>
-                                                    <TableHead>Chủ nhiệm</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {parsedData.map((member, index) => (
-                                                    <TableRow key={index}>
-                                                        <TableCell className="font-medium text-sm">{member.email}</TableCell>
-                                                        <TableCell className="text-sm">{member.fullName || '-'}</TableCell>
-                                                        <TableCell className="text-sm">{member.studentCode || '-'}</TableCell>
-                                                        <TableCell className="text-sm">{member.phone || '-'}</TableCell>
-                                                        <TableCell>
-                                                            <span className="text-xs px-2 py-1 rounded bg-muted">
-                                                                {member.role || 'MEMBER'}
-                                                            </span>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {member.isLeader === true || member.isLeader === 'true' ? (
-                                                                <span className="text-xs px-2 py-1 rounded bg-primary/20 text-primary font-medium">
-                                                                    ✓ Có
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-xs text-muted-foreground">-</span>
-                                                            )}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
-
-                    {/* Excel Format Instructions - Compact */}
-                    <Alert className="py-3">
-                        <Info className="h-4 w-4" />
-                        <AlertTitle className="text-sm">Định dạng file Excel</AlertTitle>
-                        <AlertDescription className="text-xs mt-1">
-                            <p>Các cột: <strong>email</strong> (bắt buộc), student_code, phone, full_name, role, is_leader</p>
-                            <p className="mt-1">⚠️ Phải có đúng 1 thành viên có is_leader = TRUE</p>
-                        </AlertDescription>
-                    </Alert>
-                </CardContent>
-            </Card>
-
-            <div className="flex justify-end gap-4">
-                <Button type="button" variant="outline" onClick={() => navigate('/admin/clubs')}>Hủy bỏ</Button>
-                <Button type="submit" size="lg" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Đang xử lý...
-                        </>
-                    ) : (
-                        'Phê duyệt & Tạo CLB'
-                    )}
+          {/* Excel Member Upload */}
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="bg-slate-50 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+                    Danh sách thành viên <span className="text-destructive">*</span>
+                  </CardTitle>
+                  <CardDescription>Tải lên file Excel chứa danh sách thành viên sáng lập</CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadTemplate}
+                  className="rounded-xl"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Tải template
                 </Button>
-            </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* File Upload Area with Drag & Drop */}
+              <div
+                className={`border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${isDragging
+                    ? 'border-primary bg-primary/5 scale-[1.01]'
+                    : 'border-slate-200 hover:border-primary/50 hover:bg-slate-50'
+                  }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <div className="flex items-center gap-4">
+                  <FileSpreadsheet className={`h-8 w-8 transition-colors flex-shrink-0 ${isDragging ? 'text-primary' : 'text-muted-foreground'
+                    }`} />
+                  <div className="flex-1 text-left">
+                    {isDragging ? (
+                      <p className="text-primary font-medium text-sm">
+                        Thả file vào đây để tải lên
+                      </p>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Button type="button" variant="secondary" size="sm" className="relative cursor-pointer">
+                            <input
+                              type="file"
+                              accept=".xlsx, .xls"
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                              onChange={handleFileUpload}
+                            />
+                            <Upload className="mr-2 h-3 w-3" />
+                            Chọn file Excel
+                          </Button>
+                          <span className="text-xs text-muted-foreground">hoặc kéo thả</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Hỗ trợ: .xlsx, .xls (tối đa 5MB)
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* File Preview - Compact */}
+              {excelFile && (
+                <>
+                  <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                        <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-slate-900 truncate">{excelFile.name}</p>
+                        <p className="text-xs text-emerald-600">
+                          ✓ {(excelFile.size / 1024).toFixed(2)} KB • {parsedData.length} thành viên
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-slate-400 hover:text-red-500"
+                      onClick={() => {
+                        setExcelFile(null);
+                        setParsedData([]);
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Auto-display Preview Table */}
+                  {parsedData.length > 0 && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted/50 px-4 py-2 border-b">
+                        <p className="text-sm font-medium">Xem trước dữ liệu ({parsedData.length} thành viên)</p>
+                      </div>
+                      <div className="max-h-[400px] overflow-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-background">
+                            <TableRow>
+                              <TableHead className="w-[200px]">Email</TableHead>
+                              <TableHead>Họ tên</TableHead>
+                              <TableHead>Mã SV</TableHead>
+                              <TableHead>SĐT</TableHead>
+                              <TableHead>Vai trò</TableHead>
+                              <TableHead>Chủ nhiệm</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {parsedData.map((member, index) => (
+                              <TableRow key={index}>
+                                <TableCell className="font-medium text-sm">{member.email}</TableCell>
+                                <TableCell className="text-sm">{member.fullName || '-'}</TableCell>
+                                <TableCell className="text-sm">{member.studentCode || '-'}</TableCell>
+                                <TableCell className="text-sm">{member.phone || '-'}</TableCell>
+                                <TableCell>
+                                  <span className="text-xs px-2 py-1 rounded bg-muted">
+                                    {member.role || 'MEMBER'}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  {member.isLeader === true || member.isLeader === 'true' ? (
+                                    <span className="text-xs px-2 py-1 rounded bg-primary/20 text-primary font-medium">
+                                      ✓ Có
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Excel Format Instructions - Compact */}
+              <Alert className="py-3">
+                <Info className="h-4 w-4" />
+                <AlertTitle className="text-sm">Định dạng file Excel</AlertTitle>
+                <AlertDescription className="text-xs mt-1">
+                  <p>Các cột: <strong>email</strong> (bắt buộc), student_code, phone, full_name, role, is_leader</p>
+                  <p className="mt-1">⚠️ Phải có đúng 1 thành viên có is_leader = TRUE</p>
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-4 pt-4">
+            <Button type="button" variant="outline" onClick={() => navigate('/admin/clubs')} className="rounded-xl">
+              Hủy bỏ
+            </Button>
+            <Button type="submit" size="lg" disabled={isSubmitting} className="rounded-xl bg-primary hover:bg-primary/90 px-8">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                'Phê duyệt & Tạo CLB'
+              )}
+            </Button>
+          </div>
         </form>
       </Form>
     </div>
