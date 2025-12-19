@@ -57,6 +57,9 @@ const Login = () => {
     try {
       const response = await authApi.login({ email, password });
       
+      console.log('Login response:', response);
+      console.log('Response data:', response.data);
+      
       if (response.data.success) {
         const roleRaw = (response.data.user.role || '').toString().toUpperCase();
         const normalizedRole: 'ADMIN' | 'USER' = roleRaw === 'ADMIN' ? 'ADMIN' : 'USER';

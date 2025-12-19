@@ -63,7 +63,10 @@ const attachInterceptors = (client: AxiosInstance) => {
 
     // Response interceptor - xử lý lỗi chung
     client.interceptors.response.use(
-        (response: AxiosResponse) => response,
+        (response: AxiosResponse) => {
+            console.log('✅ API Response:', response.config?.url, response.status, response.data);
+            return response;
+        },
         (error: AxiosError) => {
             // Xử lý lỗi 401 - Unauthorized
             if (error.response?.status === 401) {
@@ -98,6 +101,7 @@ export const createApiClient = () => {
         baseURL: API_URL,
         headers: {
             'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true', // Skip ngrok browser warning page
         },
         timeout: 30000,
     })
