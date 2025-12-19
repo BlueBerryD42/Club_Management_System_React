@@ -51,16 +51,16 @@ const AdminLayout = () => {
       onClick={() => isMobile && setIsMobileOpen(false)}
       className={({ isActive }) =>
         cn(
-          "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group",
+          "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group relative",
           isActive
-            ? "bg-white text-primary shadow-md shadow-primary/10"
-            : "text-slate-400 hover:bg-white/10 hover:text-white"
+            ? "bg-primary/10 text-primary border-l-4 border-primary"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         )
       }
     >
       <div className={cn(
         "flex items-center justify-center w-9 h-9 rounded-lg transition-all",
-        "group-[.active]:bg-primary/10"
+        "group-hover:bg-primary/10"
       )}>
         <Icon className="h-5 w-5" />
       </div>
