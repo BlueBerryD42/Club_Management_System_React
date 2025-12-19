@@ -1,24 +1,19 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Edit2, Save, MoreHorizontal, User, Crown, Wallet } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, User, Crown, Wallet } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const ClubDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { toast } = useToast();
-    const queryClient = useQueryClient();
-    const [isEditing, setIsEditing] = useState(false);
-    const [editForm, setEditForm] = useState({ name: "", description: "" });
 
     // Fetch club details from backend
     const { data: clubData, isLoading } = useQuery({
@@ -82,25 +77,6 @@ const ClubDetailPage = () => {
         };
     })() : null;
 
-    // Update form when data loads
-    if (club && !editForm.name) {
-        setEditForm({ name: club.name, description: club.description });
-    }
-
-    const updateMutation = useMutation({
-        mutationFn: () => clubApi.update(id!, editForm),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin-club-detail', id] });
-            toast({ title: "Thành công", description: "Đã cập nhật thông tin CLB." });
-            setIsEditing(false);
-        },
-        onError: () => toast({ title: "Lỗi", description: "Không thể cập nhật.", variant: "destructive" })
-    });
-
-    const handleSave = () => {
-        updateMutation.mutate();
-    };
-
     const handlePromote = (_userId: string, _role: string) => {
         toast({ title: "Thông báo", description: "Tính năng cập nhật vai trò đang phát triển" });
     };
@@ -143,11 +119,7 @@ const ClubDetailPage = () => {
                         <div className="grid grid-cols-2 gap-6">
                             <div>
                                 <label className="text-sm font-medium text-slate-500">Tên CLB</label>
-                                {isEditing ? (
-                                    <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="mt-1 rounded-xl" />
-                                ) : (
-                                    <div className="text-lg font-semibold text-slate-900 mt-1">{club.name}</div>
-                                )}
+                                <div className="text-lg font-semibold text-slate-900 mt-1">{club.name}</div>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-slate-500">Lĩnh vực</label>
@@ -173,11 +145,7 @@ const ClubDetailPage = () => {
                         </div>
                         <div>
                             <label className="text-sm font-medium text-slate-500">Mô tả</label>
-                            {isEditing ? (
-                                <Input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="mt-1 rounded-xl" />
-                            ) : (
-                                <p className="text-sm text-slate-600 mt-1">{club.description}</p>
-                            )}
+                            <p className="text-sm text-slate-600 mt-1">{club.description}</p>
                         </div>
                     </CardContent>
                 </Card>

@@ -22,6 +22,7 @@ interface AuditLog {
     userEmail: string | null;
     details: string | null;
     ipAddress: string | null;
+    userAgent: string | null;
     createdAt: string;
 }
 
