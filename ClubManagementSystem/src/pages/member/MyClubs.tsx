@@ -274,7 +274,7 @@ const MyClubs = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-semibold text-lg">{club.clubs.name}</h3>
-                            <Badge variant="secondary">{club.role === "LEADER" ? "Trưởng CLB" : "Thành viên"}</Badge>
+                            <Badge variant="secondary">{club.role === "LEADER" ? "Chủ nhiệm" : "Thành viên"}</Badge>
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">{club.clubs.category}</p>
                           <p className="text-sm text-muted-foreground flex items-center gap-1">

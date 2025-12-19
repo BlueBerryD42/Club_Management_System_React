@@ -1,5 +1,6 @@
 import { Outlet, Navigate, useParams } from "react-router-dom";
 import { useAppSelector } from "@/store/hooks";
+import { ScrollToTop } from "@/components/layout/ScrollToTop";
 
 const ClubLeaderLayout = () => {
     const { clubId } = useParams<{ clubId: string }>();
@@ -19,7 +20,12 @@ const ClubLeaderLayout = () => {
         return <Navigate to="/unauthorized" replace />;
     }
 
-    return <Outlet />;
+    return (
+        <>
+            <ScrollToTop />
+            <Outlet />
+        </>
+    );
 };
 
 export default ClubLeaderLayout;

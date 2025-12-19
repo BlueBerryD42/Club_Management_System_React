@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { QrCode, FileText, Home, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ScrollToTop } from "@/components/layout/ScrollToTop";
 
 const StaffLayout = () => {
   const navigate = useNavigate();
@@ -46,7 +47,8 @@ const StaffLayout = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto pb-16 md:pb-0">
+      <main className="flex-1 overflow-auto pb-16 md:pb-0" data-scroll-root>
+        <ScrollToTop />
         <div className="container mx-auto p-4 max-w-5xl">
           <Outlet />
         </div>

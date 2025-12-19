@@ -67,11 +67,13 @@ export const adminService = {
      */
     updateUser: async (id: string, data: { fullName?: string; email?: string; phone?: string; studentCode?: string }) => {
         try {
-            const response = await apiClient.patch(`/admin/users/${id}`, data);
+            // Backend route lives under /api/users/admin/users/:userId
+            const endpoint = `/users/admin/users/${id}`;
+            const response = await apiClient.patch(endpoint, data);
             return response.data;
         } catch (error: any) {
             console.error('Error updating user:', error);
-            console.error('Request URL:', `/admin/users/${id}`);
+            console.error('Request URL:', `/users/admin/users/${id}`);
             console.error('Request data:', data);
             console.error('Error response:', error?.response?.data);
             throw error;

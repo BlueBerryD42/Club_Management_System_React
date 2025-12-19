@@ -142,32 +142,36 @@ const Dashboard = () => {
       title: "CLB của tôi",
       value: stats.myClubs,
       icon: Building2,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      cardBg: "bg-primary",
+      iconColor: "text-white",
+      textColor: "text-white",
       href: "/member/my-clubs",
     },
     {
       title: "Sự kiện sắp tới",
       value: stats.upcomingEvents,
       icon: Calendar,
-      color: "text-success",
-      bgColor: "bg-success/10",
+      cardBg: "bg-emerald-500",
+      iconColor: "text-white",
+      textColor: "text-white",
       href: "/member/my-events",
     },
     {
       title: "Phí cần đóng",
       value: stats.pendingFees,
       icon: CreditCard,
-      color: "text-warning",
-      bgColor: "bg-warning/10",
+      cardBg: "bg-amber-500",
+      iconColor: "text-white",
+      textColor: "text-white",
       href: "/member/fees",
     },
     {
       title: "Đơn chờ duyệt",
       value: stats.pendingRequests,
       icon: Clock,
-      color: "text-accent",
-      bgColor: "bg-accent/10",
+      cardBg: "bg-indigo-500",
+      iconColor: "text-white",
+      textColor: "text-white",
       href: "/member/pending-applications",
     },
   ];
@@ -195,15 +199,15 @@ const Dashboard = () => {
             const Icon = stat.icon;
             return (
               <Link key={stat.title} to={stat.href}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <Card className={`hover:shadow-md transition-shadow cursor-pointer ${stat.cardBg} text-white border-none`}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground mb-1">{stat.title}</p>
+                        <p className="text-sm mb-1 text-white/80">{stat.title}</p>
                         <p className="text-3xl font-bold">{isClubsLoading ? "-" : stat.value}</p>
                       </div>
-                      <div className={`h-12 w-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
-                        <Icon className={`h-6 w-6 ${stat.color}`} />
+                      <div className={`h-12 w-12 rounded-xl bg-white/15 flex items-center justify-center`}>
+                        <Icon className={`h-6 w-6 ${stat.iconColor}`} />
                       </div>
                     </div>
                   </CardContent>

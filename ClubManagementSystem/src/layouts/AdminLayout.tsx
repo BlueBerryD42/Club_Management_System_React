@@ -33,7 +33,7 @@ const AdminLayout = () => {
 
   const handleLogout = () => {
     dispatch(logout());
-    window.location.href = "/login";
+    navigate("/login");
   };
 
   const getInitials = (name: string) => {

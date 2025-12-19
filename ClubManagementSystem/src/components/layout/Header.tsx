@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { logout } from "@/store/slices/authSlice";
+import { useQuery } from "@tanstack/react-query";
+import { clubApi } from "@/services/club.service";
 
 const navLinks = [
   { href: "/", label: "Trang chủ", icon: Home },
@@ -37,6 +39,31 @@ export function Header() {
   const profile = user ? { full_name: user.fullName || user.email || "Người dùng", avatar_url: user.avatarUrl } : undefined;
   const leaderClubs = (user?.memberships || []).filter(m => m.role === 'LEADER' && m.status === 'ACTIVE');
   const treasurerClubs = (user?.memberships || []).filter(m => m.role === 'TREASURER' && m.status === 'ACTIVE');
+  const membershipClubIds = Array.from(new Set([...leaderClubs, ...treasurerClubs].map((m) => m.clubId)));
+
+  const { data: clubNameMap } = useQuery({
+    queryKey: ['membership-club-names', membershipClubIds],
+    enabled: membershipClubIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        membershipClubIds.map(async (id) => {
+          try {
+            const res = await clubApi.getById(id);
+            const club = (res as any).data?.data || (res as any).data;
+            const name = club?.name || club?.data?.name || club?.club?.name;
+            return [id, name || id];
+          } catch (err) {
+            console.error('Failed to load club name', err);
+            return [id, id];
+          }
+        })
+      );
+      return Object.fromEntries(entries) as Record<string, string>;
+    }
+  });
+
+  const getClubName = (m: any) => clubNameMap?.[m.clubId] || m.clubName || m.club?.name || m.clubId;
 
   // Scroll detection
   useEffect(() => {
@@ -117,7 +144,7 @@ export function Header() {
                       {profile?.full_name?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="max-w-[120px] truncate text-sm">{profile?.full_name || "Người dùng"}</span>
+                  <span className="text-sm font-medium">{profile?.full_name || "Người dùng"}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
@@ -159,7 +186,7 @@ export function Header() {
                       <DropdownMenuItem key={m.clubId} asChild>
                         <Link to={`/club-leader/${m.clubId}/dashboard`} className="flex items-center gap-2">
                           <Crown className="h-4 w-4 text-yellow-500" />
-                          Quản lý CLB #{m.clubId.slice(0, 6)}
+                          Quản lý CLB {getClubName(m)}
                         </Link>
                       </DropdownMenuItem>
                     ))}
@@ -173,7 +200,7 @@ export function Header() {
                       <DropdownMenuItem key={m.clubId} asChild>
                         <Link to={`/treasurer/${m.clubId}/dashboard`} className="flex items-center gap-2">
                           <Wallet className="h-4 w-4 text-green-500" />
-                          Quản lý quỹ CLB #{m.clubId.slice(0, 6)}
+                          Quản lý quỹ CLB {getClubName(m)}
                         </Link>
                       </DropdownMenuItem>
                     ))}
@@ -252,7 +279,7 @@ export function Header() {
                           className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
                         >
                           <Crown className="h-5 w-5 text-yellow-500" />
-                          Quản lý CLB #{m.clubId.slice(0,6)}
+                          Quản lý CLB {getClubName(m)}
                         </Link>
                       ))}
                     </>
@@ -268,7 +295,7 @@ export function Header() {
                           className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
                         >
                           <Wallet className="h-5 w-5 text-green-500" />
-                          Quản lý quỹ CLB #{m.clubId.slice(0,6)}
+                          Quản lý quỹ CLB {getClubName(m)}
                         </Link>
                       ))}
                     </>

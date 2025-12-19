@@ -82,10 +82,22 @@ export default {
                     from: { height: "var(--radix-accordion-content-height)" },
                     to: { height: "0" },
                 },
+                // Animata Marquee keyframes
+                "marquee-x": {
+                    from: { transform: "translateX(0)" },
+                    to: { transform: "translateX(calc(-100% - var(--gap)))" },
+                },
+                "marquee-y": {
+                    from: { transform: "translateY(0)" },
+                    to: { transform: "translateY(calc(-100% - var(--gap)))" },
+                },
             },
             animation: {
                 "accordion-down": "accordion-down 0.2s ease-out",
                 "accordion-up": "accordion-up 0.2s ease-out",
+                // Animata Marquee animations
+                "marquee-horizontal": "marquee-x var(--duration) infinite linear",
+                "marquee-vertical": "marquee-y var(--duration) linear infinite",
             },
         },
     },

@@ -113,28 +113,32 @@ export default function TreasurerDashboard() {
       title: "Số dư hiện tại", 
       value: formatVND(balance), 
       icon: Wallet, 
-      color: "text-primary",
+      color: "text-white",
+      bg: "bg-primary",
       description: "Tổng số dư quỹ CLB"
     },
     { 
       title: "Thu nhập tháng này", 
       value: formatVND(monthlyIncome), 
       icon: TrendingUp, 
-      color: "text-green-600",
+      color: "text-white",
+      bg: "bg-emerald-500",
       description: "Tổng thu nhập trong tháng"
     },
     { 
       title: "Chi tiêu tháng này", 
       value: formatVND(monthlyExpense), 
       icon: TrendingDown, 
-      color: "text-red-600",
+      color: "text-white",
+      bg: "bg-rose-500",
       description: "Tổng chi tiêu trong tháng"
     },
     { 
       title: "Yêu cầu chờ duyệt", 
       value: pendingCount, 
       icon: FileText, 
-      color: "text-amber-600",
+      color: "text-white",
+      bg: "bg-amber-500",
       description: "Số yêu cầu chi đang chờ"
     },
   ];
@@ -151,15 +155,15 @@ export default function TreasurerDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, index) => (
-          <Card key={index} className="hover:shadow-lg transition-shadow">
+          <Card key={index} className={`hover:shadow-lg transition-shadow ${stat.bg} text-white border-none`}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
+                  <p className="text-sm/5 text-white/80">{stat.title}</p>
                   <p className="text-2xl font-bold mt-2">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+                  <p className="text-xs text-white/80 mt-1">{stat.description}</p>
                 </div>
-                <stat.icon className={`h-10 w-10 ${stat.color} opacity-80`} />
+                <stat.icon className={`h-10 w-10 ${stat.color} opacity-90`} />
               </div>
             </CardContent>
           </Card>

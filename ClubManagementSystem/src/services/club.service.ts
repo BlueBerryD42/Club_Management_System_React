@@ -17,6 +17,7 @@ export interface CreateClubWithExcelPayload {
 export interface UpdateClubPayload {
     name?: string;
     description?: string;
+    slug?: string;
     category?: string;
     status?: string;
 }
@@ -50,7 +51,7 @@ export const clubApi = {
         });
     },
 
-    update: (id: string | number, data: UpdateClubPayload) => apiClient.put(`/clubs/${id}`, data),
+    update: (id: string | number, data: UpdateClubPayload) => apiClient.patch(`/clubs/${id}`, data),
     delete: (id: string | number) => apiClient.delete(`/clubs/${id}`),
 
     // Members
