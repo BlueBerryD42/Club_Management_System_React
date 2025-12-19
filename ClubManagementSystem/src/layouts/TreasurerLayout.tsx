@@ -102,7 +102,7 @@ const TreasurerLayout = () => {
     }
   });
 
-  const getClubName = (clubIdValue: string) => clubNameMap?.[clubIdValue] || treasurerClubs.find(c => c.clubId === clubIdValue)?.clubName || clubIdValue;
+  const getClubName = (clubIdValue: string) => clubNameMap?.[clubIdValue] || treasurerClubs.find(c => c.clubId === clubIdValue)?.clubId || clubIdValue;
 
   const handleClubChange = (newClubId: string) => {
     const currentPath = location.pathname;

@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useLocation, Link } from "react-router-dom";
+import { Outlet, NavLink, useLocation, Link, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Users, Tent, LogOut, Menu, Settings, Bell, ChevronRight, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const AdminLayout = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const isMobile = useIsMobile();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     dispatch(logout());

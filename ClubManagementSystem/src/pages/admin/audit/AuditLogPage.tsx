@@ -58,12 +58,12 @@ const AuditLogPage = () => {
         refetchOnWindowFocus: true,
         refetchOnReconnect: true,
         refetchInterval: live ? 5000 : undefined,
-        keepPreviousData: true,
+        placeholderData: (previousData) => previousData,
         staleTime: 0
     });
 
-    const logs: AuditLog[] = data?.data || [];
-    const pagination = data?.pagination || { page: 1, limit, total: 0, totalPages: 0 };
+    const logs: AuditLog[] = (data as any)?.data || [];
+    const pagination = (data as any)?.pagination || { page: 1, limit, total: 0, totalPages: 0 };
 
     const handleExport = async () => {
         try {
