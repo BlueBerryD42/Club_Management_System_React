@@ -36,6 +36,7 @@ interface MyEvent {
   registered_at: string;
   qrCode?: string | null;
   event_format?: 'ONLINE' | 'OFFLINE';
+  pricing_type?: 'FREE' | 'PAID';
   events: {
     id: string;
     title: string;
@@ -87,6 +88,7 @@ const MyEvents = () => {
           registered_at: ticket.assignedAt || ticket.purchasedAt || ticket.createdAt,
           qrCode: ticket.qrCode || null,
           event_format: ticket.event.format,
+          pricing_type: ticket.event.pricingType,
           events: {
             id: ticket.event.id,
             title: ticket.event.title,
@@ -224,8 +226,11 @@ const MyEvents = () => {
             <div className="flex-1 p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <Badge variant="secondary">{event.clubs?.name}</Badge>
+                    {registration.pricing_type === 'PAID' && registration.status !== 'PAID' && registration.status !== 'USED' && (
+                      <Badge className="bg-warning/20 text-warning border-warning/30">Chưa thanh toán</Badge>
+                    )}
                     {registration.checked_in && (
                       <Badge className="bg-success/20 text-success border-success/30">Đã check-in</Badge>
                     )}
