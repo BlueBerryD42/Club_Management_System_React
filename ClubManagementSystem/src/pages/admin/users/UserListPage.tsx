@@ -37,6 +37,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -165,6 +175,7 @@ const UserListPage = () => {
   const [sortBy, setSortBy] = useState<string>("name-asc");
   const [resetPasswordDialog, setResetPasswordDialog] = useState<{ open: boolean; userId: string | null; userName: string }>({ open: false, userId: null, userName: '' });
   const [editUserDialog, setEditUserDialog] = useState<{ open: boolean; user: User | null }>({ open: false, user: null });
+  const [toggleStatusConfirmDialog, setToggleStatusConfirmDialog] = useState<{ open: boolean; userId: string | null; userName: string; currentStatus: 'active' | 'suspended' }>({ open: false, userId: null, userName: '', currentStatus: 'active' });
   const [expandedClubs, setExpandedClubs] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -361,8 +372,21 @@ const UserListPage = () => {
 
   // Handler Functions
   const handleToggleStatus = (userId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
-    toggleStatusMutation.mutate({ id: userId, status: newStatus as 'active' | 'suspended' });
+    const user = users.find((u: User) => u.id === userId);
+    setToggleStatusConfirmDialog({ 
+      open: true, 
+      userId, 
+      userName: user?.name || 'Người dùng',
+      currentStatus: currentStatus as 'active' | 'suspended'
+    });
+  };
+
+  const handleConfirmToggleStatus = () => {
+    if (toggleStatusConfirmDialog.userId) {
+      const newStatus = toggleStatusConfirmDialog.currentStatus === 'active' ? 'suspended' : 'active';
+      toggleStatusMutation.mutate({ id: toggleStatusConfirmDialog.userId, status: newStatus as 'active' | 'suspended' });
+      setToggleStatusConfirmDialog({ open: false, userId: null, userName: '', currentStatus: 'active' });
+    }
   };
 
   const handleResetPassword = (userId: string, userName: string) => {
@@ -912,6 +936,37 @@ const UserListPage = () => {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Toggle User Status Confirmation Dialog */}
+      <AlertDialog open={toggleStatusConfirmDialog.open} onOpenChange={(open) => setToggleStatusConfirmDialog({ ...toggleStatusConfirmDialog, open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {toggleStatusConfirmDialog.currentStatus === 'active' ? 'Vô hiệu hóa tài khoản?' : 'Kích hoạt tài khoản?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {toggleStatusConfirmDialog.currentStatus === 'active' ? (
+                <>
+                  Bạn có chắc muốn vô hiệu hóa tài khoản của <strong>{toggleStatusConfirmDialog.userName}</strong>? Người dùng này sẽ không thể truy cập hệ thống cho đến khi tài khoản được kích hoạt lại.
+                </>
+              ) : (
+                <>
+                  Bạn có chắc muốn kích hoạt lại tài khoản của <strong>{toggleStatusConfirmDialog.userName}</strong>?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmToggleStatus}
+              className={toggleStatusConfirmDialog.currentStatus === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+            >
+              {toggleStatusConfirmDialog.currentStatus === 'active' ? 'Vô hiệu hóa' : 'Kích hoạt'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

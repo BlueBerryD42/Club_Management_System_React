@@ -5,22 +5,25 @@ import { clubApi } from "@/services/club.service";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Users, 
-  Calendar, 
-  DollarSign, 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Users,
+  Calendar,
+  DollarSign,
   FileText,
   UserPlus,
   Settings,
   ArrowRight,
-  TrendingUp
+  TrendingUp,
 } from "lucide-react";
+import type { AxiosError } from "axios";
 
 interface Club {
   id: string;
   name: string;
   category: string;
   description: string;
+  isActive?: boolean;
 }
 
 interface ClubStats {
@@ -45,17 +48,26 @@ export default function ClubLeaderDashboard() {
     paidFees: 0,
   });
 
-  // Fetch club detail
-  const { data: clubResp, isLoading: loadingClub } = useQuery({
+  const shouldPoll = club?.isActive === false;
+
+  const {
+    data: clubResp,
+    isLoading: loadingClub,
+    error: clubError,
+    isError: isClubError,
+  } = useQuery({
     queryKey: ["leader-club-detail", clubId],
     queryFn: async () => {
       const res = await clubApi.getById(clubId!);
       return res.data;
     },
     enabled: !!clubId,
+    retry: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: shouldPoll ? 5000 : false,
   });
 
-  // Fetch applications for pending count
   const { data: appsResp } = useQuery({
     queryKey: ["leader-club-applications", clubId],
     queryFn: async () => {
@@ -73,21 +85,49 @@ export default function ClubLeaderDashboard() {
         name: c.name,
         category: c.category || "",
         description: c.description || "",
+        isActive: c.isActive,
       });
       const memberCount = c._count?.memberships || 0;
       setStats((prev) => ({
         ...prev,
         totalMembers: memberCount,
-        activeMembers: memberCount, // If backend distinguishes, replace here
+        activeMembers: memberCount,
       }));
     }
   }, [clubResp]);
 
   useEffect(() => {
     const list = (appsResp?.data || []) as Array<{ status: string }>;
-    const pending = list.filter(a => a.status?.toUpperCase() === 'PENDING').length;
+    const pending = list.filter((a) => a.status?.toUpperCase() === "PENDING").length;
     setStats((prev) => ({ ...prev, pendingRequests: pending }));
   }, [appsResp]);
+
+  // Remove manual interval; react-query refetchInterval handles polling while inactive
+
+  const clubErrorMessage = (() => {
+    if (!clubError) return "";
+    const axiosErr = clubError as AxiosError<any>;
+    return (
+      axiosErr?.response?.data?.message ||
+      axiosErr?.message ||
+      "Đã xảy ra lỗi, vui lòng thử lại sau."
+    );
+  })();
+
+  if (isClubError) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-12">
+          <Alert variant="destructive" className="max-w-2xl">
+            <AlertTitle>Không thể tải thông tin CLB</AlertTitle>
+            <AlertDescription>
+              {clubErrorMessage || "CLB có thể đã bị khóa hoặc không tồn tại."}
+            </AlertDescription>
+          </Alert>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!club || loadingClub) {
     return (
@@ -98,6 +138,8 @@ export default function ClubLeaderDashboard() {
       </Layout>
     );
   }
+
+  const isInactive = club?.isActive === false;
 
   const statCards = [
     {
@@ -141,131 +183,160 @@ export default function ClubLeaderDashboard() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">{club.name}</h1>
-          <p className="text-muted-foreground mt-2">Quản lý câu lạc bộ</p>
-        </div>
+        {isInactive ? (
+          <>
+            <Alert variant="destructive" className="mb-6">
+              <AlertTitle>CLB đã bị khóa</AlertTitle>
+              <AlertDescription>
+                CLB này đã bị vô hiệu hóa bởi admin. Vui lòng liên hệ quản trị viên để kích hoạt lại.
+              </AlertDescription>
+            </Alert>
+            <div className="mt-6 text-center text-muted-foreground">
+              <p>Hiện tại bạn không thể sử dụng các chức năng của CLB này.</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-foreground">{club.name}</h1>
+              <p className="text-muted-foreground mt-2">Quản lý câu lạc bộ</p>
+            </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statCards.map((stat, index) => (
-            <Card
-              key={index}
-              className={`relative overflow-hidden border-0 bg-gradient-to-br ${stat.gradient} shadow-lg hover:shadow-xl transition-shadow`}
-            >
-              <div className={`absolute top-0 right-0 w-32 h-32 ${stat.bubble} rounded-full -translate-y-1/2 translate-x-1/2`} />
-              <CardContent className="p-6 relative">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className={`text-3xl font-bold mt-2 ${stat.accent}`}>{stat.value}</p>
-                  </div>
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${stat.iconBg}`}>
-                    <stat.icon className={`h-6 w-6 ${stat.accent}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {statCards.map((stat, index) => (
+                <Card
+                  key={index}
+                  className={`relative overflow-hidden border-0 bg-gradient-to-br ${stat.gradient} shadow-lg hover:shadow-xl transition-shadow`}
+                >
+                  <div className={`absolute top-0 right-0 w-32 h-32 ${stat.bubble} rounded-full -translate-y-1/2 translate-x-1/2`} />
+                  <CardContent className="p-6 relative">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">{stat.title}</p>
+                        <p className={`text-3xl font-bold mt-2 ${stat.accent}`}>{stat.value}</p>
+                      </div>
+                      <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${stat.iconBg}`}>
+                        <stat.icon className={`h-6 w-6 ${stat.accent}`} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/club-leader/${clubId}/members`)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Quản lý thành viên
-              </CardTitle>
-              <CardDescription>Quản lý vai trò thành viên</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate(`/club-leader/${clubId}/members`)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Quản lý thành viên
+                  </CardTitle>
+                  <CardDescription>Quản lý vai trò thành viên</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" className="w-full">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/club-leader/${clubId}/events`)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Quản lý sự kiện
-              </CardTitle>
-              <CardDescription>Tạo và quản lý các sự kiện CLB</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate(`/club-leader/${clubId}/events`)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Quản lý sự kiện
+                  </CardTitle>
+                  <CardDescription>Tạo và quản lý các sự kiện CLB</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" className="w-full">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/club-leader/${clubId}/fees`)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Quản lý phí
-              </CardTitle>
-              <CardDescription>Thiết lập và theo dõi thu phí</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate(`/club-leader/${clubId}/fees`)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Quản lý phí
+                  </CardTitle>
+                  <CardDescription>Thiết lập và theo dõi thu phí</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" className="w-full">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/club-leader/${clubId}/requests`)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <UserPlus className="h-5 w-5" />
-                Đơn gia nhập
-                {stats.pendingRequests > 0 && (
-                  <span className="bg-warning text-warning-foreground px-2 py-0.5 rounded-full text-xs ml-auto">
-                    {stats.pendingRequests}
-                  </span>
-                )}
-              </CardTitle>
-              <CardDescription>Xem xét, duyệt đơn xin gia nhập CLB</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate(`/club-leader/${clubId}/join-requests`)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserPlus className="h-5 w-5" />
+                    Đơn gia nhập
+                  </CardTitle>
+                  <CardDescription>Xem xét, duyệt đơn gia nhập CLB</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" className="w-full">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/club-leader/${clubId}/reports`)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Báo cáo
-              </CardTitle>
-              <CardDescription>Xem báo cáo và thống kê CLB</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate(`/club-leader/${clubId}/reports`)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Báo cáo
+                  </CardTitle>
+                  <CardDescription>Xem báo cáo và thống kê CLB</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" className="w-full">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/club-leader/${clubId}/settings`)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Cài đặt CLB
-              </CardTitle>
-              <CardDescription>Cập nhật thông tin và cấu hình</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button variant="outline" className="w-full">
-                Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate(`/club-leader/${clubId}/settings`)}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Cài đặt CLB
+                  </CardTitle>
+                  <CardDescription>Cập nhật thông tin và cấu hình</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button variant="outline" className="w-full">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
     </Layout>
   );
