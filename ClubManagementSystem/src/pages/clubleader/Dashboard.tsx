@@ -9,8 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Users,
   Calendar,
-  DollarSign,
-  FileText,
   UserPlus,
   Settings,
   ArrowRight,
@@ -226,111 +224,79 @@ export default function ClubLeaderDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
               <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer"
+                className="group hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/20 hover:-translate-y-1 overflow-hidden relative"
                 onClick={() => navigate(`/club-leader/${clubId}/members`)}
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors">
                     <Users className="h-5 w-5" />
                     Quản lý thành viên
                   </CardTitle>
                   <CardDescription>Quản lý vai trò thành viên</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </CardContent>
               </Card>
 
               <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer"
+                className="group hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/20 hover:-translate-y-1 overflow-hidden relative"
                 onClick={() => navigate(`/club-leader/${clubId}/events`)}
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors">
                     <Calendar className="h-5 w-5" />
                     Quản lý sự kiện
                   </CardTitle>
                   <CardDescription>Tạo và quản lý các sự kiện CLB</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </CardContent>
               </Card>
 
               <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate(`/club-leader/${clubId}/fees`)}
+                className="group hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/20 hover:-translate-y-1 overflow-hidden relative"
+                onClick={() => navigate(`/club-leader/${clubId}/requests`)}
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Quản lý phí
-                  </CardTitle>
-                  <CardDescription>Thiết lập và theo dõi thu phí</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate(`/club-leader/${clubId}/join-requests`)}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors">
                     <UserPlus className="h-5 w-5" />
                     Đơn gia nhập
                   </CardTitle>
                   <CardDescription>Xem xét, duyệt đơn gia nhập CLB</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </CardContent>
               </Card>
 
               <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate(`/club-leader/${clubId}/reports`)}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Báo cáo
-                  </CardTitle>
-                  <CardDescription>Xem báo cáo và thống kê CLB</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer"
+                className="group hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/20 hover:-translate-y-1 overflow-hidden relative"
                 onClick={() => navigate(`/club-leader/${clubId}/settings`)}
               >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors">
                     <Settings className="h-5 w-5" />
                     Cài đặt CLB
                   </CardTitle>
                   <CardDescription>Cập nhật thông tin và cấu hình</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button variant="outline" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                    Xem chi tiết <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </CardContent>
               </Card>

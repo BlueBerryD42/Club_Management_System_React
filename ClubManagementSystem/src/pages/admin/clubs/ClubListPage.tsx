@@ -184,9 +184,9 @@ const ClubListPage = () => {
 
   const handleToggleStatus = (id: number | string, currentStatus: string) => {
     const club = clubs.find((c: any) => c.id === id);
-    setToggleConfirmDialog({ 
-      open: true, 
-      clubId: id, 
+    setToggleConfirmDialog({
+      open: true,
+      clubId: id,
       clubName: club?.name || 'Câu lạc bộ',
       currentStatus: currentStatus as 'active' | 'inactive'
     });
@@ -195,8 +195,14 @@ const ClubListPage = () => {
   const handleConfirmToggleStatus = () => {
     if (toggleConfirmDialog.clubId) {
       const newStatus = toggleConfirmDialog.currentStatus === 'active' ? 'inactive' : 'active';
-      toggleStatusMutation.mutate({ id: toggleConfirmDialog.clubId, status: newStatus });
-      setToggleConfirmDialog({ open: false, clubId: null, clubName: '', currentStatus: 'active' });
+      toggleStatusMutation.mutate(
+        { id: toggleConfirmDialog.clubId, status: newStatus },
+        {
+          onSuccess: () => {
+            setToggleConfirmDialog({ open: false, clubId: null, clubName: '', currentStatus: 'active' });
+          },
+        }
+      );
     }
   };
 
@@ -555,10 +561,21 @@ const ClubListPage = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmToggleStatus}
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmToggleStatus();
+              }}
+              disabled={toggleStatusMutation.isPending}
               className={toggleConfirmDialog.currentStatus === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}
             >
-              {toggleConfirmDialog.currentStatus === 'active' ? 'Vô hiệu hóa' : 'Kích hoạt'}
+              {toggleStatusMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                toggleConfirmDialog.currentStatus === 'active' ? 'Vô hiệu hóa' : 'Kích hoạt'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

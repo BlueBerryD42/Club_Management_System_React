@@ -9,16 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, User, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { ArrowLeft, User, CheckCircle2, XCircle, ExternalLink, Loader2 } from "lucide-react";
 
 // Mock Detail Data
-const mockRequestDetail = { 
-    id: "REQ-001", 
-    clubName: "CLB Guitar", 
+const mockRequestDetail = {
+    id: "REQ-001",
+    clubName: "CLB Guitar",
     requester: "Nguyễn Văn A (Chủ nhiệm)",
-    title: "Mua sắm thiết bị âm thanh", 
-    amount: 15000000, 
-    status: "pending", 
+    title: "Mua sắm thiết bị âm thanh",
+    amount: 15000000,
+    status: "pending",
     date: "2024-03-15",
     description: "Cần mua thêm 2 loa thùng và 1 mixer để phục vụ cho buổi biểu diễn Acoustic Night sắp tới. Các thiết bị hiện tại đã cũ và hỏng hóc nhiều.",
     proofImage: "https://placehold.co/600x400?text=Invoice+Image",
@@ -70,18 +70,12 @@ const FundRequestDetailPage = () => {
     });
 
     const handleApprove = () => {
-        // approveMutation.mutate();
-        console.log("Mock approve", approveMutation);
-        toast({ title: "Simulation", description: "Approving request..." });
-        navigate("/admin/finance/requests");
+        approveMutation.mutate();
     };
 
     const handleReject = () => {
         if (!rejectReason.trim()) return;
-        // rejectMutation.mutate();
-        console.log("Mock reject", rejectMutation);
-        toast({ title: "Simulation", description: `Rejecting request: ${rejectReason}` });
-        navigate("/admin/finance/requests");
+        rejectMutation.mutate();
     };
 
     return (
@@ -110,20 +104,46 @@ const FundRequestDetailPage = () => {
                                             Vui lòng nhập lý do từ chối để thông báo cho CLB.
                                         </DialogDescription>
                                     </DialogHeader>
-                                    <Textarea 
-                                        placeholder="Nhập lý do..." 
+                                    <Textarea
+                                        placeholder="Nhập lý do..."
                                         value={rejectReason}
                                         onChange={(e) => setRejectReason(e.target.value)}
                                     />
                                     <DialogFooter>
-                                        <Button variant="outline" onClick={() => setIsRejectOpen(false)}>Hủy</Button>
-                                        <Button variant="destructive" onClick={handleReject}>Xác nhận từ chối</Button>
+                                        <Button variant="outline" onClick={() => setIsRejectOpen(false)} disabled={rejectMutation.isPending}>Hủy</Button>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={handleReject}
+                                            disabled={rejectMutation.isPending}
+                                        >
+                                            {rejectMutation.isPending ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Đang xử lý...
+                                                </>
+                                            ) : (
+                                                "Xác nhận từ chối"
+                                            )}
+                                        </Button>
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
-                            
-                            <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove}>
-                                <CheckCircle2 className="mr-2 h-4 w-4" /> Phê duyệt
+
+                            <Button
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={handleApprove}
+                                disabled={approveMutation.isPending}
+                            >
+                                {approveMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Đang phê duyệt...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="mr-2 h-4 w-4" /> Phê duyệt
+                                    </>
+                                )}
                             </Button>
                         </div>
                     )}
@@ -142,11 +162,11 @@ const FundRequestDetailPage = () => {
                                 </CardDescription>
                             </div>
                             <Badge className={
-                                request.status === 'approved' ? 'bg-green-600' : 
-                                request.status === 'rejected' ? 'bg-destructive' : 'bg-yellow-500'
+                                request.status === 'approved' ? 'bg-green-600' :
+                                    request.status === 'rejected' ? 'bg-destructive' : 'bg-yellow-500'
                             }>
-                                {request.status === 'approved' ? 'Đã duyệt' : 
-                                 request.status === 'rejected' ? 'Đã từ chối' : 'Chờ duyệt'}
+                                {request.status === 'approved' ? 'Đã duyệt' :
+                                    request.status === 'rejected' ? 'Đã từ chối' : 'Chờ duyệt'}
                             </Badge>
                         </div>
                     </CardHeader>
@@ -183,7 +203,7 @@ const FundRequestDetailPage = () => {
                                 {formatVND(request.amount)} VND
                             </div>
                             <p className="text-xs text-muted-foreground">Số tiền đề xuất</p>
-                            
+
                             <div className="mt-6 space-y-3 pt-6 border-t">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Ngày gửi:</span>
