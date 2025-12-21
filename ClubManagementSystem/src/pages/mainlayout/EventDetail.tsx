@@ -138,10 +138,14 @@ const EventDetail = () => {
     
     const now = new Date();
     const startTime = new Date(event.startTime);
+    const endTime = event.endTime ? new Date(event.endTime) : null;
     const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
 
     // Event is hidden if current time is before visibleFrom
     if (visibleFrom && now < visibleFrom) return false;
+
+    // Event has ended - registration closed
+    if (endTime && now > endTime) return false;
 
     // Registration closes 1 hour before event starts (matching backend logic)
     const oneHourBeforeStart = new Date(startTime.getTime() - 60 * 60 * 1000);
@@ -310,6 +314,10 @@ const EventDetail = () => {
   const isHappening = endTime 
     ? (now >= startTime && now <= endTime)
     : (now >= startTime);
+
+  // Check if payment is allowed (same as registration: closes 1 hour before event starts)
+  const oneHourBeforeStart = new Date(startTime.getTime() - 60 * 60 * 1000);
+  const canMakePayment = !isPast && now < oneHourBeforeStart;
 
   return (
     <Layout>
@@ -514,7 +522,7 @@ const EventDetail = () => {
                           <CheckCircle2 className="h-4 w-4 mr-2" />
                           Đã đăng ký
                         </Button>
-                      ) : hasPendingPayment ? (
+                      ) : hasPendingPayment && canMakePayment ? (
                         <Button
                           onClick={async () => {
                             if (!pendingTicket?.transaction?.id || !event) return;
@@ -585,7 +593,7 @@ const EventDetail = () => {
                               setRegistering(false);
                             }
                           }}
-                          disabled={registering}
+                          disabled={registering || !canMakePayment}
                           className="w-full"
                           size="lg"
                           variant="default"
@@ -602,6 +610,18 @@ const EventDetail = () => {
                             </>
                           )}
                         </Button>
+                      ) : hasPendingPayment && !canMakePayment && !isPast ? (
+                        <div className="rounded-lg border border-warning/50 bg-warning/10 p-4">
+                          <div className="flex items-start gap-3">
+                            <Clock className="h-5 w-5 text-warning mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="font-medium text-warning">Đã đóng thanh toán</p>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Event sẽ diễn ra trong vòng 1 giờ. Bạn không thể thanh toán nữa.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       ) : (
                         <Button
                           onClick={handleRegister}
@@ -626,6 +646,21 @@ const EventDetail = () => {
                         </Button>
                       )}
                     </>
+                  )}
+
+                  {isPast && hasPendingPayment && (
+                    <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                      <div className="flex items-start gap-3">
+                        <XCircle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-medium text-destructive">Event đã kết thúc</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Bạn có một giao dịch thanh toán chưa hoàn tất cho event này. 
+                            Vì event đã kết thúc, bạn không thể tiếp tục thanh toán.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   {event.pricingType === "PAID" && (
