@@ -28,6 +28,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormDescription,
@@ -77,6 +87,7 @@ const ClubListPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [editClubDialog, setEditClubDialog] = useState<{ open: boolean; club: Club | null }>({ open: false, club: null });
+  const [toggleConfirmDialog, setToggleConfirmDialog] = useState<{ open: boolean; clubId: string | number | null; clubName: string; currentStatus: 'active' | 'inactive' }>({ open: false, clubId: null, clubName: '', currentStatus: 'active' });
 
   // Debounce search term
   useEffect(() => {
@@ -117,7 +128,7 @@ const ClubListPage = () => {
     leader: club.leader?.fullName || 'Chưa có',
     leaderAvatar: club.leader?.avatarUrl,
     members: club._count?.memberships || 0,
-    status: 'active',
+    status: club.isActive ? 'active' : 'inactive',
     slug: club.slug,
     logoUrl: club.logoUrl
   })) || [];
@@ -172,8 +183,21 @@ const ClubListPage = () => {
   });
 
   const handleToggleStatus = (id: number | string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    toggleStatusMutation.mutate({ id, status: newStatus });
+    const club = clubs.find((c: any) => c.id === id);
+    setToggleConfirmDialog({ 
+      open: true, 
+      clubId: id, 
+      clubName: club?.name || 'Câu lạc bộ',
+      currentStatus: currentStatus as 'active' | 'inactive'
+    });
+  };
+
+  const handleConfirmToggleStatus = () => {
+    if (toggleConfirmDialog.clubId) {
+      const newStatus = toggleConfirmDialog.currentStatus === 'active' ? 'inactive' : 'active';
+      toggleStatusMutation.mutate({ id: toggleConfirmDialog.clubId, status: newStatus });
+      setToggleConfirmDialog({ open: false, clubId: null, clubName: '', currentStatus: 'active' });
+    }
   };
 
   const handleEditClub = (club: Club) => {
@@ -353,8 +377,8 @@ const ClubListPage = () => {
                   <TableCell>
                     <Badge
                       className={`rounded-full ${club.status === "active"
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-100"
+                        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-100"
                         }`}
                     >
                       <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${club.status === "active" ? "bg-emerald-500" : "bg-slate-400"}`} />
@@ -508,6 +532,37 @@ const ClubListPage = () => {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Toggle Club Status Confirmation Dialog */}
+      <AlertDialog open={toggleConfirmDialog.open} onOpenChange={(open) => setToggleConfirmDialog({ ...toggleConfirmDialog, open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {toggleConfirmDialog.currentStatus === 'active' ? 'Vô hiệu hóa Câu lạc bộ?' : 'Kích hoạt Câu lạc bộ?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {toggleConfirmDialog.currentStatus === 'active' ? (
+                <>
+                  Bạn có chắc muốn vô hiệu hóa <strong>{toggleConfirmDialog.clubName}</strong>? Các thành viên sẽ không thể truy cập CLB này cho đến khi nó được kích hoạt lại.
+                </>
+              ) : (
+                <>
+                  Bạn có chắc muốn kích hoạt lại <strong>{toggleConfirmDialog.clubName}</strong>?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmToggleStatus}
+              className={toggleConfirmDialog.currentStatus === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}
+            >
+              {toggleConfirmDialog.currentStatus === 'active' ? 'Vô hiệu hóa' : 'Kích hoạt'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
