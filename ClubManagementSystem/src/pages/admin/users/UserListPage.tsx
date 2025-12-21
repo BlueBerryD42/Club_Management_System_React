@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, Loader2, MoreHorizontal, Lock, Unlock, KeyRound, Edit, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, Users, Loader2, MoreHorizontal, Lock, Unlock, KeyRound, Edit, ChevronDown, ChevronRight, Plus, UserPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -140,7 +140,16 @@ const editUserSchema = z.object({
     ),
 });
 
+const addMemberSchema = z.object({
+  email: z.string().email("Email không hợp lệ").min(1, "Email là bắt buộc"),
+  fullName: z.string().optional(),
+  studentCode: z.string().optional(),
+  phone: z.string().optional(),
+  role: z.enum(["MEMBER", "STAFF", "TREASURER"]),
+});
+
 type EditUserFormValues = z.infer<typeof editUserSchema>;
+type AddMemberFormValues = z.infer<typeof addMemberSchema>;
 
 const getRoleLabel = (role: string): string => {
   switch (role) {
@@ -177,6 +186,8 @@ const UserListPage = () => {
   const [editUserDialog, setEditUserDialog] = useState<{ open: boolean; user: User | null }>({ open: false, user: null });
   const [toggleStatusConfirmDialog, setToggleStatusConfirmDialog] = useState<{ open: boolean; userId: string | null; userName: string; currentStatus: 'active' | 'suspended' }>({ open: false, userId: null, userName: '', currentStatus: 'active' });
   const [expandedClubs, setExpandedClubs] = useState<Set<string>>(new Set());
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -190,6 +201,17 @@ const UserListPage = () => {
       phone: "",
       studentCode: "",
     }
+  });
+
+  const addMemberForm = useForm<AddMemberFormValues>({
+    resolver: zodResolver(addMemberSchema),
+    defaultValues: {
+      email: "",
+      fullName: "",
+      studentCode: "",
+      phone: "",
+      role: "MEMBER",
+    },
   });
 
   // Fetch all users
@@ -352,6 +374,7 @@ const UserListPage = () => {
   });
 
   // Update User Mutation
+  // Update User Mutation
   const updateUserMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => {
       console.log('Mutation called with:', { id, data });
@@ -370,12 +393,32 @@ const UserListPage = () => {
     }
   });
 
+  const addMemberMutation = useMutation({
+    mutationFn: (data: AddMemberFormValues) => clubApi.addMember(selectedClubId!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-club-detail', selectedClubId] });
+      queryClient.invalidateQueries({ queryKey: ['club-members'] });
+      toast({ title: "Thành công", description: "Đã thêm thành viên vào câu lạc bộ" });
+      setIsAddMemberOpen(false);
+      addMemberForm.reset();
+      setSelectedClubId(null);
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || "Không thể thêm thành viên";
+      toast({ title: "Lỗi", description: message, variant: "destructive" });
+    }
+  });
+
+  const onAddMemberSubmit = (data: AddMemberFormValues) => {
+    addMemberMutation.mutate(data);
+  };
+
   // Handler Functions
   const handleToggleStatus = (userId: string, currentStatus: string) => {
     const user = users.find((u: User) => u.id === userId);
-    setToggleStatusConfirmDialog({ 
-      open: true, 
-      userId, 
+    setToggleStatusConfirmDialog({
+      open: true,
+      userId,
       userName: user?.name || 'Người dùng',
       currentStatus: currentStatus as 'active' | 'suspended'
     });
@@ -632,16 +675,16 @@ const UserListPage = () => {
                       <TableCell className="text-slate-600">{user.phone || '-'}</TableCell>
                       <TableCell>
                         <Badge className={`rounded-full ${user.role === 'ADMIN'
-                            ? 'bg-red-100 text-red-700 hover:bg-red-100'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-100'
+                          ? 'bg-red-100 text-red-700 hover:bg-red-100'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-100'
                           }`}>
                           {user.role}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge className={`rounded-full ${user.status === 'active'
-                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-100'
+                          ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-100'
                           }`}>
                           <span className={`h-1.5 w-1.5 rounded-full mr-1.5 ${user.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
                           {user.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
@@ -756,7 +799,21 @@ const UserListPage = () => {
                         <p className="text-sm text-muted-foreground">{club.description}</p>
                       )}
                     </div>
-                    <Badge variant="secondary">{club.members?.length || 0} thành viên</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{club.members?.length || 0} thành viên</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 rounded-full shadow-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedClubId(club.id);
+                          setIsAddMemberOpen(true);
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Thêm
+                      </Button>
+                    </div>
                   </button>
 
                   {/* Members Table */}
@@ -967,6 +1024,116 @@ const UserListPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Member Dialog */}
+      <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <UserPlus className="h-5 w-5 text-primary" />
+              Thêm thành viên mới
+            </DialogTitle>
+            <DialogDescription>
+              Nhập thông tin để thêm thành viên trực tiếp vào câu lạc bộ.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...addMemberForm}>
+            <form onSubmit={addMemberForm.handleSubmit(onAddMemberSubmit)} className="space-y-4 py-4">
+              <FormField
+                control={addMemberForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="student@university.edu.vn" {...field} className="rounded-xl" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={addMemberForm.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Họ và tên</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nguyễn Văn A" {...field} className="rounded-xl" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addMemberForm.control}
+                  name="studentCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>MSSV</FormLabel>
+                      <FormControl>
+                        <Input placeholder="SE123456" {...field} className="rounded-xl" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addMemberForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Số điện thoại</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0987654321" {...field} className="rounded-xl" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={addMemberForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vai trò</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="rounded-xl">
+                          <SelectValue placeholder="Chọn vai trò" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="MEMBER">Thành viên</SelectItem>
+                        <SelectItem value="STAFF">Nhân viên</SelectItem>
+                        <SelectItem value="TREASURER">Thủ quỹ</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter className="pt-4">
+                <Button type="button" variant="ghost" onClick={() => setIsAddMemberOpen(false)} disabled={addMemberMutation.isPending} className="rounded-xl">
+                  Hủy
+                </Button>
+                <Button type="submit" disabled={addMemberMutation.isPending} className="rounded-xl px-8">
+                  {addMemberMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    "Thêm thành viên"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

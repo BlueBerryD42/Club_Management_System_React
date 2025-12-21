@@ -58,7 +58,9 @@ export const clubApi = {
     // Members
     getMembers: (clubId: string | number, params?: any) => apiClient.get(`/clubs/${clubId}/members`, { params }),
     join: (clubId: string | number) => apiClient.post(`/clubs/${clubId}/join`),
-    leave: (clubId: string | number) => apiClient.post(`/clubs/${clubId}/leave`),
+    leave: (clubId: string | number) => apiClient.delete(`/clubs/${clubId}/members/me`),
+    addMember: (clubId: string | number, data: any) => apiClient.post(`/clubs/${clubId}/members`, data),
+    removeMember: (clubId: string | number, membershipId: string | number) => apiClient.delete(`/clubs/${clubId}/members/${membershipId}`),
 };
 
 export default clubApi;
