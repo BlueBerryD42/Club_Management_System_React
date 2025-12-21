@@ -368,6 +368,34 @@ const EventDetailManagement = () => {
     },
   });
 
+  // Make public mutation
+  const makePublicMutation = useMutation({
+    mutationFn: async () => {
+      if (!eventId) throw new Error("Event ID not found");
+      const now = new Date();
+      now.setSeconds(0, 0); // Round to minutes
+      const payload = {
+        visibleFrom: now.toISOString(),
+      };
+      return await eventService.update(eventId, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["event-details", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["leader-events", clubId] });
+      toast({
+        title: "Thành công",
+        description: "Sự kiện đã được công khai",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Lỗi",
+        description: error?.response?.data?.message || "Không thể cập nhật sự kiện",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDelete = async () => {
     if (!event) return;
     setIsSubmitting(true);
@@ -408,32 +436,6 @@ const EventDetailManagement = () => {
         return;
       }
     }
-
-    // Make public mutation
-    const makePublicMutation = useMutation({
-      mutationFn: async () => {
-        if (!event) throw new Error("Event not found");
-        const payload = {
-          visibleFrom: now.toISOString(),
-        };
-        return await eventService.update(event.id, payload);
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["event-details", eventId] });
-        queryClient.invalidateQueries({ queryKey: ["leader-events", clubId] });
-        toast({
-          title: "Thành công",
-          description: "Sự kiện đã được công khai",
-        });
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Lỗi",
-          description: error?.response?.data?.message || "Không thể cập nhật sự kiện",
-          variant: "destructive",
-        });
-      },
-    });
 
     setIsSubmitting(true);
     makePublicMutation.mutate(undefined, {

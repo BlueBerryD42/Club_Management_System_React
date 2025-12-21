@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { eventService, type Event } from "@/services/event.service";
 import { ticketService } from "@/services/ticket.service";
+import { transactionApi } from "@/services/transaction.service";
 import { useToast } from "@/hooks/use-toast";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -62,20 +63,33 @@ const EventDetail = () => {
     retry: 1,
   });
 
-  // Check registration status
+  // Check registration status and pending payment
   const { data: registrationData } = useQuery({
     queryKey: ["event-registration", id, user?.id],
     queryFn: async () => {
-      if (!user || !id) return { hasRegistered: false };
+      if (!user || !id) return { hasRegistered: false, hasPendingPayment: false, pendingTicket: null };
       try {
         const response = await ticketService.getMyTickets(id);
         const tickets = response.data.tickets || [];
-        const activeTickets = tickets.filter((t: any) =>
-          ["PAID", "RESERVED", "USED"].includes(t.status)
+        
+        // Fully paid/used tickets
+        const paidTickets = tickets.filter((t: any) =>
+          ["PAID", "USED"].includes(t.status)
         );
-        return { hasRegistered: activeTickets.length > 0 };
+        
+        // Pending/reserved tickets (unpaid)
+        const pendingTickets = tickets.filter((t: any) =>
+          ["RESERVED", "INIT"].includes(t.status) && 
+          t.transaction?.status === "PENDING"
+        );
+        
+        return { 
+          hasRegistered: paidTickets.length > 0,
+          hasPendingPayment: pendingTickets.length > 0,
+          pendingTicket: pendingTickets[0] || null
+        };
       } catch (error: any) {
-        return { hasRegistered: false };
+        return { hasRegistered: false, hasPendingPayment: false, pendingTicket: null };
       }
     },
     enabled: !!user && !!id,
@@ -83,6 +97,8 @@ const EventDetail = () => {
   });
 
   const hasRegistered = registrationData?.hasRegistered || false;
+  const hasPendingPayment = registrationData?.hasPendingPayment || false;
+  const pendingTicket = registrationData?.pendingTicket || null;
 
   // Fetch user's own feedback for ended events
   const { data: feedbackData } = useQuery({
@@ -497,6 +513,94 @@ const EventDetail = () => {
                         >
                           <CheckCircle2 className="h-4 w-4 mr-2" />
                           Đã đăng ký
+                        </Button>
+                      ) : hasPendingPayment ? (
+                        <Button
+                          onClick={async () => {
+                            if (!pendingTicket?.transaction?.id || !event) return;
+                            try {
+                              setRegistering(true);
+                              
+                              // First, try to get existing payment info
+                              let paymentLink: string | null = null;
+                              let expiresAt: Date | null = null;
+                              
+                              try {
+                                const response = await transactionApi.getPaymentInfo(pendingTicket.transaction.id);
+                                paymentLink = response.data?.data?.paymentLink || response.data?.data?.checkoutUrl || response.data?.paymentLink || response.data?.checkoutUrl;
+                                const expiresAtStr = response.data?.data?.expiresAt || response.data?.data?.expires_at || response.data?.expiresAt;
+                                expiresAt = expiresAtStr ? new Date(expiresAtStr) : null;
+                              } catch (error) {
+                                console.log("Could not get payment info, will create new payment link");
+                              }
+                              
+                              // Check if payment link is expired
+                              const isExpired = expiresAt ? new Date() > new Date(expiresAt) : false;
+                              
+                              // If expired or no payment link, create a new one
+                              if (isExpired || !paymentLink) {
+                                toast({
+                                  title: isExpired ? "Link thanh toán đã hết hạn" : "Đang tạo link thanh toán mới",
+                                  description: "Vui lòng chờ...",
+                                });
+                                
+                                // Create new payment link
+                                const createPaymentResponse = await transactionApi.createPayment({
+                                  type: 'EVENT_TICKET',
+                                  eventId: event.id,
+                                });
+                                
+                                paymentLink = createPaymentResponse.data?.data?.paymentLink || createPaymentResponse.data?.paymentLink;
+                                
+                                if (!paymentLink) {
+                                  toast({
+                                    title: "Lỗi",
+                                    description: "Không thể tạo link thanh toán mới. Vui lòng thử lại sau.",
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                
+                                toast({
+                                  title: "Đã tạo link thanh toán mới",
+                                  description: "Link thanh toán mới đã được tạo. Vui lòng hoàn tất thanh toán.",
+                                });
+                              }
+                              
+                              if (paymentLink) {
+                                window.open(paymentLink, "_blank", "noopener,noreferrer");
+                                // Refresh registration status after a delay
+                                setTimeout(() => {
+                                  queryClient.invalidateQueries({ queryKey: ["event-registration", id, user?.id] });
+                                }, 2000);
+                              }
+                            } catch (error: any) {
+                              console.error("Error handling payment:", error);
+                              toast({
+                                title: "Lỗi",
+                                description: error.response?.data?.message || "Không thể xử lý thanh toán. Vui lòng thử lại sau.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setRegistering(false);
+                            }
+                          }}
+                          disabled={registering}
+                          className="w-full"
+                          size="lg"
+                          variant="default"
+                        >
+                          {registering ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Đang xử lý...
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Thanh toán để hoàn tất đăng ký
+                            </>
+                          )}
                         </Button>
                       ) : (
                         <Button

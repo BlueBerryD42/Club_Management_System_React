@@ -5,6 +5,7 @@ import PendingFundRequestsPage from '@/pages/treasurer/PendingFundRequestsPage';
 import FundRequestDetailPage from '@/pages/treasurer/FundRequestDetailPage';
 import LedgerPage from '@/pages/treasurer/LedgerPage';
 import TransactionsPage from '@/pages/treasurer/TransactionsPage';
+import TransactionDetailPage from '@/pages/treasurer/TransactionDetailPage';
 import ReportsPage from '@/pages/treasurer/ReportsPage';
 
 const TreasurerRoutes: RouteObject = {
@@ -32,6 +33,10 @@ const TreasurerRoutes: RouteObject = {
             element: <TransactionsPage />,
         },
         {
+            path: 'transactions/:transactionId',
+            element: <TransactionDetailPage />,
+        },
+        {
             path: 'reports',
             element: <ReportsPage />,
         },
@@ -39,6 +44,7 @@ const TreasurerRoutes: RouteObject = {
 };
 
 export default TreasurerRoutes;
+
 
 
 

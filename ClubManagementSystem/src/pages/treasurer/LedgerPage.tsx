@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { treasurerService } from "@/services/treasurer.service";
@@ -24,7 +24,9 @@ import {
   TrendingDown,
   Search,
   Download,
-  Loader2
+  Loader2,
+  Eye,
+  ExternalLink
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -38,6 +40,7 @@ import {
 
 export default function LedgerPage() {
   const { clubId } = useParams<{ clubId: string }>();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -261,51 +264,105 @@ export default function LedgerPage() {
                   <TableHead>Ghi chú</TableHead>
                   <TableHead className="text-right">Số tiền</TableHead>
                   <TableHead className="text-right">Số dư sau</TableHead>
+                  <TableHead>Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEntries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      {format(new Date(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={entry.type === "INCOME" ? "default" : "destructive"}
-                        className="flex items-center gap-1 w-fit"
-                      >
-                        {entry.type === "INCOME" ? (
-                          <TrendingUp className="h-3 w-3" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3" />
+                {filteredEntries.map((entry) => {
+                  const hasTransaction = entry.transactionId && entry.transaction;
+                  const hasFundRequest = entry.fundRequestId && entry.fundRequest;
+                  const isClickable = hasTransaction || hasFundRequest;
+
+                  const handleRowClick = () => {
+                    if (hasTransaction && entry.transactionId) {
+                      navigate(`/treasurer/${clubId}/transactions/${entry.transactionId}`);
+                    } else if (hasFundRequest && entry.fundRequest?.eventId) {
+                      navigate(`/treasurer/${clubId}/fund-requests/${entry.fundRequest.eventId}`);
+                    }
+                  };
+
+                  return (
+                    <TableRow 
+                      key={entry.id}
+                      className={isClickable ? "cursor-pointer hover:bg-muted/50" : ""}
+                      onClick={isClickable ? handleRowClick : undefined}
+                    >
+                      <TableCell>
+                        {format(new Date(entry.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={entry.type === "INCOME" ? "default" : "destructive"}
+                          className="flex items-center gap-1 w-fit"
+                        >
+                          {entry.type === "INCOME" ? (
+                            <TrendingUp className="h-3 w-3" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3" />
+                          )}
+                          {entry.type === "INCOME" ? "Thu" : "Chi"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-md">
+                        <p className="truncate">{entry.note || "Không có ghi chú"}</p>
+                        {entry.transaction && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3" />
+                            Giao dịch: {entry.transaction.id.slice(0, 8)}...
+                          </p>
                         )}
-                        {entry.type === "INCOME" ? "Thu" : "Chi"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-md">
-                      <p className="truncate">{entry.note || "Không có ghi chú"}</p>
-                      {entry.transaction && (
-                        <p className="text-xs text-muted-foreground">
-                          Giao dịch: {entry.transaction.id.slice(0, 8)}...
-                        </p>
-                      )}
-                      {entry.fundRequest && (
-                        <p className="text-xs text-muted-foreground">
-                          Yêu cầu: {entry.fundRequest.title}
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      <span className={entry.type === "INCOME" ? "text-green-600" : "text-red-600"}>
-                        {entry.type === "INCOME" ? "+" : "-"}
-                        {formatVND(entry.amount)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatVND(entry.balanceAfter)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        {entry.fundRequest && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3" />
+                            Yêu cầu: {entry.fundRequest.title}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        <span className={entry.type === "INCOME" ? "text-green-600" : "text-red-600"}>
+                          {entry.type === "INCOME" ? "+" : "-"}
+                          {formatVND(entry.amount)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatVND(entry.balanceAfter)}
+                      </TableCell>
+                      <TableCell>
+                        {hasTransaction && entry.transactionId && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/treasurer/${clubId}/transactions/${entry.transactionId}`);
+                            }}
+                            title="Xem chi tiết giao dịch"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasFundRequest && entry.fundRequest?.eventId && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (entry.fundRequest?.eventId) {
+                                navigate(`/treasurer/${clubId}/fund-requests/${entry.fundRequest.eventId}`);
+                              }
+                            }}
+                            title="Xem chi tiết yêu cầu quỹ"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {!hasTransaction && !hasFundRequest && (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

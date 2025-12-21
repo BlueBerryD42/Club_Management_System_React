@@ -23,6 +23,7 @@ export interface PendingEvent {
     description: string | null;
     totalAmount: number;
     status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISBURSED' | 'CANCELLED';
+    proofImageUrl?: string | null;
     items: Array<{
       id: string;
       name: string;
@@ -80,6 +81,7 @@ export interface LedgerEntry {
     id: string;
     title: string;
     totalAmount: number;
+    eventId?: string | null;
   };
 }
 

@@ -45,6 +45,7 @@ export default function FundRequestDetailPage() {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofImageUrl, setProofImageUrl] = useState("");
   const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Fetch event details
   const { data: event, isLoading: loadingEvent } = useQuery({
@@ -56,7 +57,7 @@ export default function FundRequestDetailPage() {
     enabled: !!eventId,
   });
 
-  // Fetch pending events to get fund request details
+  // Fetch pending events to get fund request details (for pending events)
   const { data: pendingData } = useQuery({
     queryKey: ["treasurer-pending-events", clubId],
     queryFn: async () => {
@@ -66,11 +67,33 @@ export default function FundRequestDetailPage() {
     enabled: !!clubId,
   });
 
-  const fundRequest = pendingData?.data?.find(e => e.id === eventId)?.fundRequests?.[0];
-  const balance = pendingData?.balance || 0;
+  // Get fund request from pending data (for pending events) or from event data (for approved/rejected events)
+  const fundRequestFromPending = pendingData?.data?.find(e => e.id === eventId)?.fundRequests?.[0];
+  const fundRequestFromEvent = event?.fundRequests?.[0];
+  const fundRequest = fundRequestFromPending || fundRequestFromEvent;
+  
+  // Check event status
+  const isPending = event?.approvalStatus === 'PENDING';
+  const isApproved = event?.approvalStatus === 'APPROVED';
+  const isRejected = event?.approvalStatus === 'REJECTED';
+  
+  // Get balance from pending data or fetch separately for approved events
+  const { data: clubBalanceData } = useQuery({
+    queryKey: ["treasurer-club-balance", clubId],
+    queryFn: async () => {
+      if (!clubId) return null;
+      return await treasurerService.getClubBalance(clubId);
+    },
+    enabled: !!clubId && !!event && !isPending, // Only fetch for approved/rejected events
+  });
+  
+  // Use balance from pending data if available, otherwise use club balance data
+  const balance = pendingData?.balance ?? clubBalanceData?.balance ?? 0;
   const requestAmount = fundRequest?.totalAmount || 0;
   const balanceAfter = balance - requestAmount;
-  const canApprove = balance >= requestAmount;
+  
+  // Can only approve if event is pending and balance is sufficient
+  const canApprove = isPending && balance >= requestAmount;
 
   // Approve mutation
   const approveMutation = useMutation({
@@ -151,7 +174,18 @@ export default function FundRequestDetailPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    processFile(file);
+  };
 
+  const handleRemoveFile = () => {
+    setProofFile(null);
+    setProofPreview(null);
+    // Reset file input
+    const fileInput = document.getElementById('proof-file') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  };
+
+  const processFile = (file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
@@ -159,7 +193,6 @@ export default function FundRequestDetailPage() {
         description: "Chỉ chấp nhận file hình ảnh (JPG, PNG, GIF, etc.)",
         variant: "destructive",
       });
-      e.target.value = '';
       return;
     }
 
@@ -170,7 +203,6 @@ export default function FundRequestDetailPage() {
         description: "Kích thước file không được vượt quá 5MB",
         variant: "destructive",
       });
-      e.target.value = '';
       return;
     }
 
@@ -185,12 +217,27 @@ export default function FundRequestDetailPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleRemoveFile = () => {
-    setProofFile(null);
-    setProofPreview(null);
-    // Reset file input
-    const fileInput = document.getElementById('proof-file') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
   };
 
   const handleApprove = () => {
@@ -257,11 +304,13 @@ export default function FundRequestDetailPage() {
           <h2 className="text-2xl font-bold tracking-tight">{event.title}</h2>
           <p className="text-muted-foreground text-sm">Chi tiết yêu cầu chi quỹ</p>
         </div>
-        <Badge variant="secondary">Chờ duyệt</Badge>
+        {isPending && <Badge variant="secondary">Chờ duyệt</Badge>}
+        {isApproved && <Badge variant="default" className="bg-green-600">Đã duyệt</Badge>}
+        {isRejected && <Badge variant="destructive">Đã từ chối</Badge>}
       </div>
 
-      {/* Balance Warning */}
-      {!canApprove && (
+      {/* Balance Warning - Only show for pending events */}
+      {isPending && !canApprove && (
         <Card className="border-amber-500 bg-amber-50">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -366,6 +415,26 @@ export default function FundRequestDetailPage() {
                   </span>
                 </div>
               </div>
+              {(fundRequest as any)?.proofImageUrl && (
+                <div className="pt-4 border-t">
+                  <Label className="text-muted-foreground">Hình ảnh chuyển khoản</Label>
+                  <div className="mt-2">
+                    <img
+                      src={
+                        (fundRequest as any).proofImageUrl.startsWith('http')
+                          ? (fundRequest as any).proofImageUrl
+                          : `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}${(fundRequest as any).proofImageUrl}`
+                      }
+                      alt="Proof of payment"
+                      className="max-w-full rounded-lg border object-contain max-h-96"
+                      onError={(e) => {
+                        console.error('Error loading image:', (fundRequest as any).proofImageUrl);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -404,13 +473,14 @@ export default function FundRequestDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Hành động</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Dialog 
+          {/* Actions - Only show for pending events */}
+          {isPending && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Hành động</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Dialog 
                 open={isApproveOpen} 
                 onOpenChange={(open) => {
                   setIsApproveOpen(open);
@@ -419,6 +489,7 @@ export default function FundRequestDetailPage() {
                     setProofFile(null);
                     setProofImageUrl('');
                     setProofPreview(null);
+                    setIsDragging(false);
                     const fileInput = document.getElementById('proof-file') as HTMLInputElement;
                     if (fileInput) fileInput.value = '';
                   }
@@ -486,10 +557,19 @@ export default function FundRequestDetailPage() {
                           </div>
                         )}
                         {!proofPreview && !proofImageUrl && (
-                          <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                          <div
+                            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                              isDragging
+                                ? 'border-primary bg-primary/5'
+                                : 'border-muted-foreground/25'
+                            }`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                          >
                             <Image className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
                             <p className="text-sm text-muted-foreground">
-                              Chọn file hình ảnh để xem trước
+                              {isDragging ? 'Thả file vào đây' : 'Kéo thả file vào đây hoặc chọn file'}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
                               Chấp nhận: JPG, PNG, GIF, WEBP (tối đa 5MB)
@@ -561,8 +641,9 @@ export default function FundRequestDetailPage() {
                 <XCircle className="h-4 w-4 mr-2" />
                 Từ chối
               </Button>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
