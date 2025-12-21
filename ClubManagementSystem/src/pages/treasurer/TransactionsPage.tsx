@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { treasurerService } from "@/services/treasurer.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import { vi } from "date-fns/locale";
 import { 
   CreditCard, 
   Search,
+  Eye,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -28,9 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 export default function TransactionsPage() {
   const { clubId } = useParams<{ clubId: string }>();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -197,11 +200,16 @@ export default function TransactionsPage() {
                   <TableHead>Trạng thái</TableHead>
                   <TableHead className="text-right">Số tiền</TableHead>
                   <TableHead>Ngày tạo</TableHead>
+                  <TableHead>Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTransactions.map((tx) => (
-                  <TableRow key={tx.id}>
+                  <TableRow 
+                    key={tx.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/treasurer/${clubId}/transactions/${tx.id}`)}
+                  >
                     <TableCell className="font-mono text-sm">
                       {tx.id.slice(0, 8)}...
                     </TableCell>
@@ -231,6 +239,18 @@ export default function TransactionsPage() {
                     </TableCell>
                     <TableCell>
                       {format(new Date(tx.createdAt), "dd/MM/yyyy HH:mm", { locale: vi })}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/treasurer/${clubId}/transactions/${tx.id}`);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

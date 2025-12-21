@@ -13,6 +13,8 @@ import { useAppSelector } from "@/store/hooks";
 import { useToast } from "@/hooks/use-toast";
 import { ticketService, type Ticket } from "@/services/ticket.service";
 import { eventService } from "@/services/event.service";
+import { transactionApi } from "@/services/transaction.service";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   Calendar, 
   MapPin, 
@@ -23,7 +25,8 @@ import {
   Search,
   UserCog,
   MessageSquare,
-  Star
+  Star,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -57,9 +60,11 @@ const MyEvents = () => {
   const user = useAppSelector((s) => s.auth.user);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedQRCode, setSelectedQRCode] = useState<string | null>(null);
   const [selectedEventTitle, setSelectedEventTitle] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"upcoming" | "past" | "staff">("upcoming");
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
 
   // Fetch user tickets with caching
   const { data: ticketsData, isLoading: loadingData, error: ticketsError } = useQuery<MyEvent[]>({
@@ -73,8 +78,23 @@ const MyEvents = () => {
         return [];
       }
       
+      // Filter out CANCELLED tickets and deduplicate by event (keep most recent active ticket per event)
+      const activeTickets = tickets.filter((ticket: Ticket) => ticket.status !== 'CANCELLED' && ticket.status !== 'EXPIRED');
+      
+      // Group by event ID and keep only the most recent ticket per event
+      const eventTicketMap = new Map<string, Ticket>();
+      activeTickets.forEach((ticket: Ticket) => {
+        const eventId = ticket.event.id;
+        const existing = eventTicketMap.get(eventId);
+        
+        // If no existing ticket for this event, or this ticket is newer, use this one
+        if (!existing || new Date(ticket.createdAt) > new Date(existing.createdAt)) {
+          eventTicketMap.set(eventId, ticket);
+        }
+      });
+      
       // Map tickets to MyEvent format
-      return tickets.map((ticket: Ticket) => {
+      return Array.from(eventTicketMap.values()).map((ticket: Ticket) => {
         const isOnline = ticket.event.format === 'ONLINE';
         const displayLocation = isOnline
           ? (ticket.onlineLink || ticket.event.location)
@@ -296,6 +316,108 @@ const MyEvents = () => {
                 <div className="flex items-start gap-2 flex-shrink-0">
                   {!isPastEvent && (
                     <>
+                      {registration.pricing_type === 'PAID' && registration.status !== 'PAID' && registration.status !== 'USED' && (
+                        <Button 
+                          size="sm" 
+                          variant="default"
+                          className="whitespace-nowrap"
+                          disabled={processingPayment === registration.id}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            // Get transaction ID from ticket - we need to fetch ticket details
+                            try {
+                              setProcessingPayment(registration.id);
+                              const ticketResponse = await ticketService.getMyTickets(event.id);
+                              const tickets = ticketResponse.data?.tickets || [];
+                              const myTicket = tickets.find((t: Ticket) => t.id === registration.id);
+                              
+                              if (!myTicket?.transaction?.id) {
+                                toast({
+                                  title: "Lỗi",
+                                  description: "Không tìm thấy thông tin giao dịch.",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              
+                              // First, try to get existing payment info
+                              let paymentLink: string | null = null;
+                              let expiresAt: Date | null = null;
+                              
+                              try {
+                                const response = await transactionApi.getPaymentInfo(myTicket.transaction.id);
+                                paymentLink = response.data?.data?.paymentLink || response.data?.data?.checkoutUrl || response.data?.paymentLink || response.data?.checkoutUrl;
+                                const expiresAtStr = response.data?.data?.expiresAt || response.data?.data?.expires_at || response.data?.expiresAt;
+                                expiresAt = expiresAtStr ? new Date(expiresAtStr) : null;
+                              } catch (error) {
+                                console.log("Could not get payment info, will create new payment link");
+                              }
+                              
+                              // Check if payment link is expired
+                              const isExpired = expiresAt ? new Date() > new Date(expiresAt) : false;
+                              
+                              // If expired or no payment link, create a new one
+                              if (isExpired || !paymentLink) {
+                                toast({
+                                  title: isExpired ? "Link thanh toán đã hết hạn" : "Đang tạo link thanh toán mới",
+                                  description: "Vui lòng chờ...",
+                                });
+                                
+                                // Create new payment link
+                                const createPaymentResponse = await transactionApi.createPayment({
+                                  type: 'EVENT_TICKET',
+                                  eventId: event.id,
+                                });
+                                
+                                paymentLink = createPaymentResponse.data?.data?.paymentLink || createPaymentResponse.data?.paymentLink;
+                                
+                                if (!paymentLink) {
+                                  toast({
+                                    title: "Lỗi",
+                                    description: "Không thể tạo link thanh toán mới. Vui lòng thử lại sau.",
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                
+                                toast({
+                                  title: "Đã tạo link thanh toán mới",
+                                  description: "Link thanh toán mới đã được tạo. Vui lòng hoàn tất thanh toán.",
+                                });
+                              }
+                              
+                              if (paymentLink) {
+                                window.open(paymentLink, "_blank", "noopener,noreferrer");
+                                // Refresh tickets after a delay
+                                setTimeout(() => {
+                                  queryClient.invalidateQueries({ queryKey: ["my-tickets", user?.id] });
+                                }, 2000);
+                              }
+                            } catch (error: any) {
+                              console.error("Error handling payment:", error);
+                              toast({
+                                title: "Lỗi",
+                                description: error.response?.data?.message || "Không thể xử lý thanh toán. Vui lòng thử lại sau.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setProcessingPayment(null);
+                            }
+                          }}
+                        >
+                          {processingPayment === registration.id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Đang xử lý...
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Thanh toán
+                            </>
+                          )}
+                        </Button>
+                      )}
                       {registration.event_format === 'OFFLINE' && registration.qrCode && (
                         <Button 
                           size="sm" 

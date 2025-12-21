@@ -47,6 +47,20 @@ export interface Event {
       phone: string | null;
     };
   }>;
+  fundRequests?: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    totalAmount: number;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISBURSED' | 'CANCELLED';
+    proofImageUrl?: string | null;
+    items: Array<{
+      id: string;
+      name: string;
+      amount: number;
+      description: string | null;
+    }>;
+  }>;
 }
 
 export interface GetEventsParams {
