@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { QrCode, FileText, Home, ArrowLeft } from "lucide-react";
+import { QrCode, Home, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
