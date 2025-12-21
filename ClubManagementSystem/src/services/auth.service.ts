@@ -28,6 +28,8 @@ export interface LoginResponse {
 
 export interface LoginWithGooglePayload {
     email: string;
+    fullName?: string;
+    avatarUrl?: string;
 }
 
 export interface RegisterResponse {
@@ -60,18 +62,18 @@ export interface UserProfile {
 }
 
 export const authApi = {
-    login: (data: LoginPayload) => 
+    login: (data: LoginPayload) =>
         apiClient.post<LoginResponse>('/users/login', data),
 
     loginWithGoogle: (data: LoginWithGooglePayload) =>
         apiClient.post<LoginResponse>('/users/login-with-google', data),
-    
-    register: (data: RegisterPayload) => 
+
+    register: (data: RegisterPayload) =>
         apiClient.post<RegisterResponse>('/users/register', data),
-    
-    getCurrentUser: () => 
+
+    getCurrentUser: () =>
         apiClient.get<{ user: UserProfile }>('/users/getprofile'),
-    
+
     getProfile: () =>
         apiClient.get<{ user: UserProfile }>('/users/getprofile'),
 };

@@ -7,13 +7,81 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, MoreHorizontal, User, Crown, Wallet } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Plus, UserPlus, Trash2, Loader2, ArrowLeft, MoreHorizontal, User, Crown, Wallet } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+const addMemberSchema = z.object({
+    email: z.string().email("Email không hợp lệ").min(1, "Email là bắt buộc"),
+    fullName: z.string().optional(),
+    studentCode: z.string().optional(),
+    phone: z.string().optional(),
+    role: z.enum(["MEMBER", "STAFF", "TREASURER"]),
+});
+
+type AddMemberFormValues = z.infer<typeof addMemberSchema>;
 
 const ClubDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+    const [removingMember, setRemovingMember] = useState<{ id: string; name: string } | null>(null);
+
+    const form = useForm<AddMemberFormValues>({
+        resolver: zodResolver(addMemberSchema),
+        defaultValues: {
+            email: "",
+            fullName: "",
+            studentCode: "",
+            phone: "",
+            role: "MEMBER",
+        },
+    });
+
+    const addMemberMutation = useMutation({
+        mutationFn: (data: AddMemberFormValues) => clubApi.addMember(club!.id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-club-detail', id] });
+            queryClient.invalidateQueries({ queryKey: ['club-members', id] });
+            toast({ title: "Thành công", description: "Đã thêm thành viên vào câu lạc bộ" });
+            setIsAddMemberOpen(false);
+            form.reset();
+        },
+        onError: (error: any) => {
+            const message = error?.response?.data?.message || "Không thể thêm thành viên";
+            toast({ title: "Lỗi", description: message, variant: "destructive" });
+        }
+    });
+
+    const removeMemberMutation = useMutation({
+        mutationFn: (membershipId: string) => clubApi.removeMember(club!.id, membershipId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-club-detail', id] });
+            queryClient.invalidateQueries({ queryKey: ['club-members', id] });
+            toast({ title: "Thành công", description: "Đã xóa thành viên khỏi câu lạc bộ" });
+            setRemovingMember(null);
+        },
+        onError: (error: any) => {
+            const message = error?.response?.data?.message || "Không thể xóa thành viên";
+            toast({ title: "Lỗi", description: message, variant: "destructive" });
+            setRemovingMember(null);
+        }
+    });
+
+    const onAddMemberSubmit = (data: AddMemberFormValues) => {
+        addMemberMutation.mutate(data);
+    };
 
     // Fetch club details from backend
     const { data: clubData, isLoading } = useQuery({
@@ -37,12 +105,13 @@ const ClubDetailPage = () => {
 
     // Map backend data to frontend format
     const club = clubData?.data ? (() => {
-        const members = membersData?.data?.map((m: any) => ({
+        const members: any[] = membersData?.data?.map((m: any) => ({
             id: m.user?.id || m.userId,
             name: m.user?.fullName || m.user?.email || 'Unknown',
             email: m.user?.email || '',
             role: m.role?.toLowerCase() || 'member',
-            status: 'active'
+            status: 'active',
+            membershipId: m.id
         })) || [];
 
         // Find treasurer from members list
@@ -186,10 +255,15 @@ const ClubDetailPage = () => {
             {/* Members List */}
             <Card className="border-0 shadow-lg overflow-hidden">
                 <CardHeader className="bg-slate-50 border-b">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <User className="h-5 w-5 text-slate-600" />
-                        Danh sách thành viên
-                        <Badge variant="secondary" className="ml-2 rounded-full">{club.membersCount}</Badge>
+                    <CardTitle className="text-lg flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <User className="h-5 w-5 text-slate-600" />
+                            Danh sách thành viên
+                            <Badge variant="secondary" className="ml-2 rounded-full">{club.membersCount}</Badge>
+                        </div>
+                        <Button size="sm" onClick={() => setIsAddMemberOpen(true)} className="rounded-full shadow-sm">
+                            <Plus className="h-4 w-4 mr-1" /> Thêm thành viên
+                        </Button>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -210,7 +284,7 @@ const ClubDetailPage = () => {
                                         <p className="text-muted-foreground">Chưa có thành viên nào</p>
                                     </TableCell>
                                 </TableRow>
-                            ) : club.members.map((member: { id: string; name: string; email: string; role: string; status: string }) => (
+                            ) : club.members.map((member: { id: string; name: string; email: string; role: string; status: string; membershipId: string }) => (
                                 <TableRow key={member.id} className="hover:bg-slate-50/50 transition-colors">
                                     <TableCell className="font-medium">{member.name}</TableCell>
                                     <TableCell className="text-slate-600">{member.email}</TableCell>
@@ -252,6 +326,14 @@ const ClubDetailPage = () => {
                                                     <User className="h-4 w-4 mr-2" />
                                                     Xuống làm Thành viên
                                                 </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                    onClick={() => setRemovingMember({ id: member.membershipId, name: member.name })}
+                                                    className="cursor-pointer text-destructive focus:text-destructive"
+                                                >
+                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                    Xóa khỏi CLB
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -261,6 +343,149 @@ const ClubDetailPage = () => {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Add Member Dialog */}
+            <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
+                <DialogContent className="sm:max-w-[425px] rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl">
+                            <UserPlus className="h-5 w-5 text-primary" />
+                            Thêm thành viên mới
+                        </DialogTitle>
+                        <DialogDescription>
+                            Nhập thông tin để thêm thành viên trực tiếp vào câu lạc bộ.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onAddMemberSubmit)} className="space-y-4 py-4">
+                            <FormField
+                                control={form.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Email *</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="student@university.edu.vn" {...field} className="rounded-xl" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="fullName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Họ và tên</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Nguyễn Văn A" {...field} className="rounded-xl" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="studentCode"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>MSSV</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="SE123456" {...field} className="rounded-xl" />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="phone"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Số điện thoại</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="0987654321" {...field} className="rounded-xl" />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <FormField
+                                control={form.control}
+                                name="role"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Vai trò</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger className="rounded-xl">
+                                                    <SelectValue placeholder="Chọn vai trò" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="MEMBER">Thành viên</SelectItem>
+                                                <SelectItem value="STAFF">Nhân viên</SelectItem>
+                                                <SelectItem value="TREASURER">Thủ quỹ</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <DialogFooter className="pt-4">
+                                <Button type="button" variant="ghost" onClick={() => setIsAddMemberOpen(false)} disabled={addMemberMutation.isPending} className="rounded-xl">
+                                    Hủy
+                                </Button>
+                                <Button type="submit" disabled={addMemberMutation.isPending} className="rounded-xl px-8">
+                                    {addMemberMutation.isPending ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Đang xử lý...
+                                        </>
+                                    ) : (
+                                        "Thêm thành viên"
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Remove Member Confirmation */}
+            <AlertDialog open={!!removingMember} onOpenChange={(open) => !open && setRemovingMember(null)}>
+                <AlertDialogContent className="rounded-2xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Xác nhận xóa thành viên?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Bạn có chắc chắn muốn xóa <strong>{removingMember?.name}</strong> khỏi câu lạc bộ?
+                            Hành động này sẽ thu hồi quyền truy cập của họ ngay lập tức.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={removeMemberMutation.isPending} className="rounded-xl">Hủy</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault();
+                                if (removingMember) removeMemberMutation.mutate(removingMember.id);
+                            }}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl"
+                            disabled={removeMemberMutation.isPending}
+                        >
+                            {removeMemberMutation.isPending ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Đang xóa...
+                                </>
+                            ) : (
+                                "Xóa thành viên"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

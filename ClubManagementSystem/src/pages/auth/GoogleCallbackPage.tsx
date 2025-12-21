@@ -45,7 +45,7 @@ const GoogleCallbackPage = () => {
         }
       } else {
         // 1b) Nếu không có code, thử lấy access_token/refresh_token từ fragment (#)
-        const hashParams = new URLSearchParams(url.hash.replace(/^#/,'') );
+        const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
 
@@ -74,9 +74,13 @@ const GoogleCallbackPage = () => {
         }
       }
 
-      // 2) Lấy email từ session Supabase
+      // 2) Lấy email và thông tin từ session Supabase
       const { data: sessionData } = await supabase.auth.getSession();
-      const email = sessionData.session?.user?.email;
+      const user = sessionData.session?.user;
+      const email = user?.email;
+      const metadata = user?.user_metadata || {};
+      const fullName = metadata.full_name || metadata.name || "";
+      const avatarUrl = metadata.avatar_url || metadata.picture || "";
 
       if (!email) {
         setStatus("Không lấy được email từ Google");
@@ -89,8 +93,12 @@ const GoogleCallbackPage = () => {
       }
 
       try {
-        // 3) Gọi BE để lấy JWT
-        const response = await authApi.loginWithGoogle({ email });
+        // 3) Gọi BE để lấy JWT (Auto-register nếu chưa có)
+        const response = await authApi.loginWithGoogle({
+          email,
+          fullName,
+          avatarUrl
+        });
         if (response.data.success) {
           const roleRaw = (response.data.user.role || '').toString().toUpperCase();
           const normalizedRole: 'ADMIN' | 'USER' = roleRaw === 'ADMIN' ? 'ADMIN' : 'USER';
@@ -111,32 +119,7 @@ const GoogleCallbackPage = () => {
         }
       } catch (err) {
         const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
-        const statusCode = axiosErr.response?.status;
         const message = axiosErr.response?.data?.message;
-
-        // If backend returns 404 (email not registered), redirect back to login
-        if (statusCode === 404) {
-          const seconds = 5;
-          setCountdown(seconds);
-          setStatus(`${message || "Email chưa được đăng ký trong hệ thống."} Tự động quay về trang đăng nhập sau ${seconds}s...`);
-          toast({
-            variant: "destructive",
-            title: "Đăng nhập thất bại",
-            description: message || "Email chưa được đăng ký trong hệ thống. Vui lòng đăng ký trước.",
-          });
-          // Start countdown and redirect after it finishes
-          let remaining = seconds;
-          const interval = setInterval(() => {
-            remaining -= 1;
-            setCountdown(remaining);
-            setStatus(`${message || "Email chưa được đăng ký trong hệ thống."} Tự động quay về trang đăng nhập sau ${remaining}s...`);
-            if (remaining <= 0) {
-              clearInterval(interval);
-              navigate('/login', { replace: true });
-            }
-          }, 1000);
-          return;
-        }
 
         setStatus(message || "Không đăng nhập được. Vui lòng thử lại.");
         toast({

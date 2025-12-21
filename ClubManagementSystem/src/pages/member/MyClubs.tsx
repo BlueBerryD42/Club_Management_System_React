@@ -1,4 +1,4 @@
-// Removed unused useState import
+import { useState } from "react";
 import { Link } from "react-router-dom";
 // import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
@@ -18,10 +18,23 @@ import {
   CheckCircle2,
   XCircle,
   ArrowRight,
-  Plus
+  Plus,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface MyClub {
   id: string;
@@ -63,6 +76,8 @@ const MyClubs = () => {
   const loading = false;
   // const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isLeaving, setIsLeaving] = useState<string | null>(null);
 
   // Fetch user's clubs based on memberships
   const { data: myClubs = [], isLoading: clubsLoading } = useQuery<MyClub[]>({
@@ -164,6 +179,29 @@ const MyClubs = () => {
   //   }
   // }, [user, loading, navigate]);
 
+  const leaveClubMutation = useMutation({
+    mutationFn: (clubId: string) => clubApi.leave(clubId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-clubs'] });
+      // Also invalidate user so memberships are refreshed
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      toast({
+        title: "Thành công",
+        description: "Bạn đã rời khỏi câu lạc bộ",
+      });
+      setIsLeaving(null);
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || "Không thể rời câu lạc bộ";
+      toast({
+        title: "Lỗi",
+        description: message,
+        variant: "destructive",
+      });
+      setIsLeaving(null);
+    }
+  });
+
   const cancelRequest = async (_requestId: string) => {
     // TODO: Call API to cancel the request
     toast({
@@ -172,12 +210,8 @@ const MyClubs = () => {
     });
   };
 
-  const leaveClub = async (_membershipId: string) => {
-    // TODO: Call API to leave the club
-    toast({
-      title: "Đã rời",
-      description: "Bạn đã rời khỏi câu lạc bộ",
-    });
+  const leaveClub = async (clubId: string) => {
+    leaveClubMutation.mutate(clubId);
   };
 
   if (loading) {
@@ -290,14 +324,47 @@ const MyClubs = () => {
                             </Link>
                           </Button>
                           {club.role !== "LEADER" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => leaveClub(club.id)}
-                            >
-                              Rời CLB
-                            </Button>
+                            <AlertDialog open={isLeaving === club.club_id} onOpenChange={(open) => !open && setIsLeaving(null)}>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setIsLeaving(club.club_id)}
+                                >
+                                  Rời CLB
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Xác nhận rời câu lạc bộ?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Bạn có chắc muốn rời khỏi <strong>{club.clubs.name}</strong>?
+                                    Hành động này không thể hoàn tác.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel disabled={leaveClubMutation.isPending}>Hủy</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      leaveClub(club.club_id);
+                                    }}
+                                    disabled={leaveClubMutation.isPending}
+                                  >
+                                    {leaveClubMutation.isPending ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Đang xử lý...
+                                      </>
+                                    ) : (
+                                      "Rời CLB"
+                                    )}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           )}
                         </div>
                       </div>
