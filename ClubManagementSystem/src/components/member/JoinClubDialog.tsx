@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Send } from "lucide-react";
+import { Users, Send, Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
 
@@ -89,7 +89,11 @@ export default function JoinClubDialog({ clubId, clubName, triggerLabel = "Xin g
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Hủy</Button>
           <Button onClick={handleSubmit} disabled={submitting} className="inline-flex items-center gap-2">
-            <Send className="h-4 w-4" />
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
             {submitting ? "Đang gửi..." : "Gửi đơn"}
           </Button>
         </DialogFooter>

@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check, X, Eye, MessageSquare } from "lucide-react";
+import { ArrowLeft, Check, X, Eye, MessageSquare, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
 
@@ -63,7 +63,7 @@ export default function JoinRequests() {
   }, [appsResp]);
 
   const reviewMutation = useMutation({
-    mutationFn: (vars: { applicationId: string; action: 'approve'|'reject'; reviewNotes?: string }) =>
+    mutationFn: (vars: { applicationId: string; action: 'approve' | 'reject'; reviewNotes?: string }) =>
       clubApi.reviewApplication(clubId!, vars.applicationId, { action: vars.action, reviewNotes: vars.reviewNotes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["club-applications", clubId] });
@@ -241,12 +241,28 @@ export default function JoinRequests() {
             <DialogFooter>
               {selectedRequest?.status === "pending" && (
                 <>
-                  <Button variant="outline" onClick={() => handleReject(selectedRequest)}>
-                    <X className="mr-2 h-4 w-4" />
+                  <Button
+                    variant="outline"
+                    onClick={() => handleReject(selectedRequest)}
+                    disabled={reviewMutation.isPending}
+                  >
+                    {reviewMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <X className="mr-2 h-4 w-4" />
+                    )}
                     Từ chối
                   </Button>
-                  <Button onClick={() => handleApprove(selectedRequest)} className="bg-success hover:bg-success/90">
-                    <Check className="mr-2 h-4 w-4" />
+                  <Button
+                    onClick={() => handleApprove(selectedRequest)}
+                    className="bg-success hover:bg-success/90"
+                    disabled={reviewMutation.isPending}
+                  >
+                    {reviewMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-2 h-4 w-4" />
+                    )}
                     Duyệt
                   </Button>
                 </>

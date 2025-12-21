@@ -32,7 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
-import { Search, ArrowLeft, UserCog, UserMinus, Crown } from "lucide-react";
+import { Search, ArrowLeft, UserCog, UserMinus, Crown, Loader2 } from "lucide-react";
 
 interface MemberWithProfile {
   id: string;
@@ -141,7 +141,7 @@ export default function MemberManagement() {
       return;
     }
 
-    // Cập nhật role thông thường (MEMBER, STAFF, TREASURER)
+    // Cập nhật role thông thường (MEMBER, TREASURER)
     updateRoleMutation.mutate({
       membershipId: selectedMember.id,
       role: upperRole,
@@ -314,7 +314,6 @@ export default function MemberManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="member">Thành viên</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
                   <SelectItem value="treasurer">Thủ quỹ</SelectItem>
                   <SelectItem value="leader">Leader</SelectItem>
                 </SelectContent>
@@ -324,7 +323,19 @@ export default function MemberManagement() {
               <Button variant="outline" onClick={() => setShowRoleDialog(false)}>
                 Hủy
               </Button>
-              <Button onClick={handleChangeRole}>Lưu thay đổi</Button>
+              <Button
+                onClick={handleChangeRole}
+                disabled={updateRoleMutation.isPending}
+              >
+                {updateRoleMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  "Lưu thay đổi"
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -367,7 +378,14 @@ export default function MemberManagement() {
                 disabled={transferLeaderMutation.isPending}
                 className="bg-amber-500 hover:bg-amber-600"
               >
-                {transferLeaderMutation.isPending ? "Đang xử lý..." : "Xác nhận chuyển quyền"}
+                {transferLeaderMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  "Xác nhận chuyển quyền"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

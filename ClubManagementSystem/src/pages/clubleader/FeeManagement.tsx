@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import { clubApi } from "@/services/club.service";
 import { useMutation } from "@tanstack/react-query";
 
@@ -281,8 +281,20 @@ export default function FeeManagement() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setShowFeeDialog(false); resetFeeForm(); }}>Hủy</Button>
-              <Button onClick={handleCreateFee}>{editingFee ? "Lưu thay đổi" : "Tạo phí"}</Button>
+              <Button onClick={() => { setShowFeeDialog(false); resetFeeForm(); }}>Hủy</Button>
+              <Button
+                onClick={handleCreateFee}
+                disabled={configFeeMutation.isPending}
+              >
+                {configFeeMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  editingFee ? "Lưu thay đổi" : "Tạo phí"
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

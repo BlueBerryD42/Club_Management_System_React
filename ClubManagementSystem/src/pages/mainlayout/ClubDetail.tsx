@@ -131,6 +131,8 @@ const ClubDetail = () => {
       facebook: `facebook.com/${club.slug}`,
       instagram: `@${club.slug}`,
     },
+    membershipFeeEnabled: club.membershipFeeEnabled,
+    membershipFeeAmount: club.membershipFeeAmount,
     achievements: [
       "Giải Nhất Hackathon Quốc gia 2023",
       "Top 10 CLB xuất sắc toàn quốc",
@@ -139,13 +141,13 @@ const ClubDetail = () => {
     upcomingEvents: (eventsResponse?.data || [])
       .filter((event: any) => !clubResponse?.data?.id || event.clubId === clubResponse.data.id)
       .map((event: any) => ({
-      id: event.id,
-      title: event.title,
-      date: event.startTime,
-      time: new Date(event.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      location: event.location || event.onlineLink || 'Chưa xác định',
-      attendees: event._count?.tickets || 0,
-    })),
+        id: event.id,
+        title: event.title,
+        date: event.startTime,
+        time: new Date(event.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        location: event.location || event.onlineLink || 'Chưa xác định',
+        attendees: event._count?.tickets || 0,
+      })),
     recentMembers: ((membersResponse?.data?.data) || membersResponse?.data || []).slice(0, 4).map((member: any) => ({
       id: member.userId,
       name: member.user?.fullName || member.user?.email?.split('@')[0] || 'Thành viên',
@@ -339,36 +341,36 @@ const ClubDetail = () => {
                       <CardTitle>Thành viên mới tham gia</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {membersLoading ? (
-                          <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                          </div>
-                        ) : clubData.recentMembers.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                            <p>Chưa có thành viên nào</p>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-4">
-                            {clubData.recentMembers.map((member: { id: string; name: string; avatar?: string }) => (
-                              <div key={member.id} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted/50">
-                                <Avatar className="h-16 w-16">
-                                  <AvatarImage src={member.avatar} alt={member.name} />
-                                  <AvatarFallback>{member.name[0]}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm font-medium">{member.name}</span>
+                      {membersLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      ) : clubData.recentMembers.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                          <p>Chưa có thành viên nào</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-4">
+                          {clubData.recentMembers.map((member: { id: string; name: string; avatar?: string }) => (
+                            <div key={member.id} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted/50">
+                              <Avatar className="h-16 w-16">
+                                <AvatarImage src={member.avatar} alt={member.name} />
+                                <AvatarFallback>{member.name[0]}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm font-medium">{member.name}</span>
+                            </div>
+                          ))}
+                          {clubData.members > 4 && (
+                            <div className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-muted/50 min-w-[100px]">
+                              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                                +{clubData.members - 4}
                               </div>
-                            ))}
-                            {clubData.members > 4 && (
-                              <div className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-muted/50 min-w-[100px]">
-                                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                                  +{clubData.members - 4}
-                                </div>
-                                <span className="text-sm text-muted-foreground">thành viên</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                              <span className="text-sm text-muted-foreground">thành viên</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -382,20 +384,30 @@ const ClubDetail = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="p-4 rounded-xl bg-muted/50">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h4 className="font-semibold">Phí sinh hoạt kỳ</h4>
-                            <p className="text-sm text-muted-foreground">Thu 1 lần/học kỳ</p>
+                      {clubData.membershipFeeEnabled ? (
+                        <div className="p-4 rounded-xl bg-muted/50">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h4 className="font-semibold">Phí tham gia câu lạc bộ</h4>
+                              <p className="text-sm text-muted-foreground">Đóng 1 lần duy nhất khi gia nhập</p>
+                            </div>
+                            <span className="text-xl font-bold text-primary">
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(clubData.membershipFeeAmount)}
+                            </span>
                           </div>
-                          <span className="text-xl font-bold text-primary">50.000đ</span>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <FileText className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                          <p>Hiện tại câu lạc bộ không thu phí gia nhập</p>
+                        </div>
+                      )}
+
                       <div className="p-4 rounded-xl bg-muted/50">
                         <div className="flex justify-between items-center">
                           <div>
                             <h4 className="font-semibold">Phí sự kiện đặc biệt</h4>
-                            <p className="text-sm text-muted-foreground">Tùy theo sự kiện</p>
+                            <p className="text-sm text-muted-foreground">Tùy theo từng sự kiện cá nhân</p>
                           </div>
                           <span className="text-xl font-bold text-primary">Theo thông báo</span>
                         </div>

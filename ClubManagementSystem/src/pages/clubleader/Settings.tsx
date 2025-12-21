@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,13 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clubApi } from "@/services/club.service";
-import { ArrowLeft, Save, Building2 } from "lucide-react";
+import { ArrowLeft, Save, Building2, Loader2 } from "lucide-react";
 
 // Simplified settings: only fields backed by DB
 
 export default function ClubSettings() {
   const { clubId } = useParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
@@ -44,6 +45,7 @@ export default function ClubSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['club-details', clubId] });
       toast({ title: "Thành công", description: "Đã cập nhật cấu hình phí thành viên" });
+      navigate(`/club-leader/${clubId}/dashboard`);
     },
     onError: (error: any) => {
       toast({
@@ -220,8 +222,17 @@ export default function ClubSettings() {
                 className="w-full"
                 disabled={updateMembershipFeeMutation.isPending}
               >
-                <Save className="mr-2 h-4 w-4" />
-                {updateMembershipFeeMutation.isPending ? "Đang lưu..." : "Lưu cấu hình phí"}
+                {updateMembershipFeeMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Đang lưu...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Lưu cấu hình phí
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
