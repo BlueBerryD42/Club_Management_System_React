@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { QrCode, FileText, Home, ArrowLeft } from "lucide-react";
+import { QrCode, Home, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
@@ -32,12 +32,12 @@ const StaffLayout = () => {
             >
               Check-in
             </NavLink>
-            <NavLink 
+            {/* <NavLink 
               to="/staff/requests" 
               className={({ isActive }) => cn("text-sm font-medium transition-colors hover:text-primary", isActive ? "text-primary" : "text-muted-foreground")}
             >
               Yêu cầu chi
-            </NavLink>
+            </NavLink> */}
           </nav>
           <Button variant="ghost" size="sm" onClick={handleBackToUserPage}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -73,13 +73,13 @@ const StaffLayout = () => {
             <span className="text-[10px] font-medium">Check-in</span>
           </NavLink>
 
-          <NavLink 
+          {/* <NavLink 
             to="/staff/requests" 
             className={({ isActive }) => cn("flex flex-col items-center gap-1 p-2 rounded-lg transition-colors", isActive ? "text-primary" : "text-muted-foreground")}
           >
             <FileText className="h-6 w-6" />
             <span className="text-[10px] font-medium">Đề xuất</span>
-          </NavLink>
+          </NavLink> */}
 
           <button 
             onClick={handleBackToUserPage}

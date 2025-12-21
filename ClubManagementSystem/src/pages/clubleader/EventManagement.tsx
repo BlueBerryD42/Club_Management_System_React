@@ -311,7 +311,11 @@ export default function EventManagement() {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const response = await eventService.getAll({ clubId });
+      const response = await eventService.getAll({ 
+        clubId,
+        includePending: 'true', // Include pending and rejected events for club leader
+        includeInactive: 'true' // Include ended events too
+      });
       const mappedEvents: Event[] = (response.data || []).map((event: BackendEvent) => ({
         id: event.id,
         title: event.title,
@@ -466,6 +470,15 @@ export default function EventManagement() {
     const startTime = new Date(event.startTime);
     const endTime = event.endTime ? new Date(event.endTime) : null;
     const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
+
+    // Check approval status first (for pending/rejected events)
+    if ((event as any).approvalStatus === 'PENDING') {
+      return <Badge className="bg-warning/20 text-warning">Chờ duyệt quỹ</Badge>;
+    }
+    
+    if ((event as any).approvalStatus === 'REJECTED') {
+      return <Badge className="bg-destructive/20 text-destructive">Đã từ chối</Badge>;
+    }
 
     if (!event.isActive) {
       return <Badge className="bg-destructive/20 text-destructive">Đã hủy</Badge>;

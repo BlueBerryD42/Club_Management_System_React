@@ -68,6 +68,7 @@ export interface GetEventsParams {
   type?: 'PUBLIC' | 'INTERNAL';
   pricingType?: 'FREE' | 'PAID';
   includeInactive?: string; // 'true' to include inactive/ended events
+  includePending?: string; // 'true' to include pending/rejected events
 }
 
 export interface FundRequestItem {
