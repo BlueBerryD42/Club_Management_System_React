@@ -194,15 +194,15 @@ function FundRequestTotalDisplay({ form }: { form: ReturnType<typeof useForm<Eve
     name: "fundRequest.items",
     defaultValue: [],
   }) || [];
-  
+
   const totalAmount = items.reduce((sum: number, item: any) => {
     if (!item) return sum;
     const amount = typeof item.amount === 'number' ? item.amount : (parseInt(String(item.amount || 0)) || 0);
     return sum + amount;
   }, 0);
-  
+
   if (items.length === 0) return null;
-  
+
   return (
     <div className="mb-4 p-4 bg-muted rounded-md">
       <div className="flex items-center justify-between">
@@ -232,7 +232,7 @@ export default function EventManagement() {
   const [fundRequestItemAmounts, setFundRequestItemAmounts] = useState<Record<number, string>>({});
   const previousItemsRef = useRef<any[]>([]);
   const isAddingItemRef = useRef(false);
-  
+
   // Flatten all locations from all campuses
   const allLocations = eventLocationsData.campuses.flatMap((campus: any) =>
     campus.locations.map((loc: any) => ({
@@ -254,9 +254,10 @@ export default function EventManagement() {
   });
 
   const clubMembers = clubMembersData?.data || [];
-  
+
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
+    mode: "onChange",
     defaultValues: {
       title: "",
       description: "",
@@ -284,8 +285,8 @@ export default function EventManagement() {
     const subscription = form.watch((value, { name }) => {
       if (name === "location" && value.location) {
         // Try to match with predefined locations
-        const matched = allLocations.find((loc: any) => 
-          loc.locationName === value.location || 
+        const matched = allLocations.find((loc: any) =>
+          loc.locationName === value.location ||
           value.location?.trim() === loc.locationName.trim()
         );
         if (matched) {
@@ -521,7 +522,7 @@ export default function EventManagement() {
   const getEventTypeBadge = (event: Event) => {
     const typeLabel = event.type === "PUBLIC" ? "Công khai" : "Nội bộ";
     const pricingLabel = event.pricingType === "FREE" ? "Miễn phí" : "Tính phí";
-    
+
     if (event.type === "PUBLIC" && event.pricingType === "FREE") {
       return <Badge className="bg-blue-500/20 text-blue-600">{typeLabel} - {pricingLabel}</Badge>;
     }
@@ -616,16 +617,16 @@ export default function EventManagement() {
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
                           <Users className="h-3 w-3" />
-                          {event.capacity 
-                            ? `${event.attendees}/${event.capacity}` 
+                          {event.capacity
+                            ? `${event.attendees}/${event.capacity}`
                             : `${event.attendees} (Không giới hạn)`}
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(event)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => navigate(`/club-leader/${clubId}/events/${event.id}/manage`)}
                           >
@@ -750,25 +751,25 @@ export default function EventManagement() {
                     render={({ field }) => {
                       // Always show formatted value, or raw value when editing
                       const currentValue = field.value || 0;
-                      const displayValue = priceDisplay !== "" 
-                        ? priceDisplay 
+                      const displayValue = priceDisplay !== ""
+                        ? priceDisplay
                         : (currentValue > 0 ? formatVND(currentValue) : "");
-                      
+
                       return (
                         <FormItem>
                           <FormLabel>Giá vé (VNĐ) <span className="text-destructive">*</span></FormLabel>
                           <FormControl>
-                            <Input 
-                              type="text" 
-                              value={displayValue} 
+                            <Input
+                              type="text"
+                              value={displayValue}
                               onChange={(e) => {
                                 // Remove all non-digit characters
                                 const rawValue = e.target.value.replace(/[^\d]/g, '');
                                 const numValue = parseInt(rawValue) || 0;
-                                
+
                                 // Update form value
                                 field.onChange(numValue);
-                                
+
                                 // Auto-format as user types
                                 if (rawValue) {
                                   setPriceDisplay(formatVND(numValue));
@@ -823,20 +824,20 @@ export default function EventManagement() {
                       name="location"
                       render={({ field }) => {
                         const currentLocation = field.value || "";
-                        
+
                         return (
                           <FormItem>
                             <FormLabel>Địa điểm <span className="text-destructive">*</span></FormLabel>
                             <div className="flex gap-2">
                               <FormControl className="flex-1">
-                                <Input 
-                                  placeholder="VD: Phòng NVH.618 hoặc chọn từ danh sách..." 
+                                <Input
+                                  placeholder="VD: Phòng NVH.618 hoặc chọn từ danh sách..."
                                   value={currentLocation}
                                   onChange={(e) => {
                                     field.onChange(e.target.value);
                                     // Check if it matches a predefined location
-                                    const matched = allLocations.find((loc: any) => 
-                                      loc.locationName === e.target.value || 
+                                    const matched = allLocations.find((loc: any) =>
+                                      loc.locationName === e.target.value ||
                                       e.target.value.trim() === loc.locationName.trim()
                                     );
                                     if (matched) {
@@ -866,8 +867,8 @@ export default function EventManagement() {
                                     <ChevronsUpDown className="h-4 w-4" />
                                   </Button>
                                 </PopoverTrigger>
-                                <PopoverContent 
-                                  className="w-[400px] p-0" 
+                                <PopoverContent
+                                  className="w-[400px] p-0"
                                   align="start"
                                   onWheel={(e) => {
                                     // Prevent scroll from bubbling to parent dialog
@@ -876,7 +877,7 @@ export default function EventManagement() {
                                 >
                                   <Command className="h-[400px] flex flex-col">
                                     <CommandInput placeholder="Tìm kiếm địa điểm..." className="border-b" />
-                                    <CommandList 
+                                    <CommandList
                                       className="flex-1 overflow-y-auto overflow-x-hidden min-h-0"
                                       onWheel={(e) => {
                                         // Stop propagation to prevent dialog scrolling when scrolling the list
@@ -951,17 +952,17 @@ export default function EventManagement() {
                     name="capacity"
                     render={({ field }) => {
                       const capacityValue = field.value;
-                      const exceedsCapacity = selectedLocationCapacity !== null && 
-                                              capacityValue !== undefined && 
-                                              capacityValue > selectedLocationCapacity;
-                      
+                      const exceedsCapacity = selectedLocationCapacity !== null &&
+                        capacityValue !== undefined &&
+                        capacityValue > selectedLocationCapacity;
+
                       return (
                         <FormItem>
                           <FormLabel>Số người tối đa <span className="text-muted-foreground text-xs">(Để trống = không giới hạn)</span></FormLabel>
                           <FormControl>
                             <div className="space-y-2">
-                              <Input 
-                                type="number" 
+                              <Input
+                                type="number"
                                 min={1}
                                 value={field.value || ""}
                                 onChange={(e) => {
@@ -972,7 +973,7 @@ export default function EventManagement() {
                                     const numValue = parseInt(value);
                                     if (!isNaN(numValue) && numValue > 0) {
                                       field.onChange(numValue);
-                                      
+
                                       // Show toast warning only once per location when capacity exceeds
                                       if (selectedLocationCapacity !== null && numValue > selectedLocationCapacity && !hasShownCapacityToast) {
                                         toast({
@@ -1017,10 +1018,11 @@ export default function EventManagement() {
                       <FormItem>
                         <FormLabel>Ngày mở đăng ký <span className="text-destructive">*</span></FormLabel>
                         <FormControl>
-                          <Input 
-                            type="datetime-local" 
+                          <Input
+                            type="datetime-local"
                             className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
                             {...field}
+                            max={form.watch("startTime")}
                             onChange={(e) => {
                               field.onChange(e);
                               // Trigger validation for startTime when visibleFrom changes
@@ -1039,13 +1041,13 @@ export default function EventManagement() {
                       <FormItem>
                         <FormLabel>Thời gian bắt đầu <span className="text-destructive">*</span></FormLabel>
                         <FormControl>
-                          <Input 
-                            type="datetime-local" 
+                          <Input
+                            type="datetime-local"
                             className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
+                            {...field}
                             min={(() => {
                               const now = new Date();
                               const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-                              // Format as YYYY-MM-DDTHH:mm for datetime-local input
                               const year = sevenDaysFromNow.getFullYear();
                               const month = String(sevenDaysFromNow.getMonth() + 1).padStart(2, '0');
                               const day = String(sevenDaysFromNow.getDate()).padStart(2, '0');
@@ -1053,12 +1055,10 @@ export default function EventManagement() {
                               const minutes = String(sevenDaysFromNow.getMinutes()).padStart(2, '0');
                               return `${year}-${month}-${day}T${hours}:${minutes}`;
                             })()}
-                            {...field}
                             onChange={(e) => {
                               field.onChange(e);
                               // Trigger validation for visibleFrom and endTime when startTime changes
-                              form.trigger("visibleFrom");
-                              form.trigger("endTime");
+                              form.trigger(["visibleFrom", "endTime"]);
                             }}
                           />
                         </FormControl>
@@ -1073,10 +1073,11 @@ export default function EventManagement() {
                       <FormItem>
                         <FormLabel>Thời gian kết thúc</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="datetime-local" 
+                          <Input
+                            type="datetime-local"
                             className="[&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:brightness-0"
                             {...field}
+                            min={form.watch("startTime")}
                             onChange={(e) => {
                               field.onChange(e);
                               // Trigger validation for startTime when endTime changes
@@ -1089,7 +1090,7 @@ export default function EventManagement() {
                     )}
                   />
                 </div>
-                
+
                 {/* Staff Assignment Section */}
                 <FormField
                   control={form.control}
@@ -1114,7 +1115,7 @@ export default function EventManagement() {
                         <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto">
                           <div className="space-y-3">
                             {clubMembers
-                              .filter((member: any) => 
+                              .filter((member: any) =>
                                 member.status === "ACTIVE" && member.role !== "LEADER" && member.role !== "TREASURER"
                               )
                               .map((member: any) => {
@@ -1122,9 +1123,9 @@ export default function EventManagement() {
                                 const userName = member.user?.fullName || "Unknown";
                                 const userEmail = member.user?.email || "";
                                 const memberRole = member.role || "MEMBER";
-                                
+
                                 if (!userId) return null;
-                                
+
                                 return (
                                   <div
                                     key={userId}
@@ -1137,8 +1138,8 @@ export default function EventManagement() {
                                         return checked
                                           ? field.onChange([...currentValue, userId])
                                           : field.onChange(
-                                              currentValue.filter((value) => value !== userId)
-                                            );
+                                            currentValue.filter((value) => value !== userId)
+                                          );
                                       }}
                                     />
                                     <label className="font-normal flex-1 cursor-pointer" onClick={() => {
@@ -1157,9 +1158,9 @@ export default function EventManagement() {
                                         </div>
                                         {memberRole !== "MEMBER" && (
                                           <Badge variant="outline" className="ml-2">
-                                            {memberRole === "LEADER" ? "Chủ nhiệm" : 
-                                             memberRole === "STAFF" ? "Nhân viên" : 
-                                             memberRole === "TREASURER" ? "Thủ quỹ" : memberRole}
+                                            {memberRole === "LEADER" ? "Chủ nhiệm" :
+                                              memberRole === "STAFF" ? "Nhân viên" :
+                                                memberRole === "TREASURER" ? "Thủ quỹ" : memberRole}
                                           </Badge>
                                         )}
                                       </div>
@@ -1178,7 +1179,7 @@ export default function EventManagement() {
                 {/* Fund Request Section */}
                 <div className="border-t pt-6 mt-6">
                   <h3 className="text-lg font-semibold mb-4">Yêu cầu quỹ</h3>
-                  
+
                   <FormField
                     control={form.control}
                     name="fundRequest.title"
@@ -1200,10 +1201,10 @@ export default function EventManagement() {
                       <FormItem className="mb-4">
                         <FormLabel>Mô tả yêu cầu quỹ <span className="text-destructive">*</span></FormLabel>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Mô tả chi tiết về yêu cầu quỹ và lý do cần thiết..." 
-                            rows={3} 
-                            {...field} 
+                          <Textarea
+                            placeholder="Mô tả chi tiết về yêu cầu quỹ và lý do cần thiết..."
+                            rows={3}
+                            {...field}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1227,16 +1228,16 @@ export default function EventManagement() {
                               size="sm"
                               onClick={() => {
                                 isAddingItemRef.current = true;
-                                
+
                                 // Get the absolute latest form values to ensure we have everything
                                 const currentFormItems = form.getValues("fundRequest.items") || [];
-                                
+
                                 // Also get from field.value as backup
                                 const fieldItems = field.value || [];
-                                
+
                                 // Use whichever has more items (likely the form values)
                                 const sourceItems = currentFormItems.length >= fieldItems.length ? currentFormItems : fieldItems;
-                                
+
                                 // Create a deep copy with ALL properties preserved
                                 const preservedItems = sourceItems.map((item: any) => {
                                   return {
@@ -1246,31 +1247,31 @@ export default function EventManagement() {
                                     _tempId: (item as any)?._tempId || undefined
                                   };
                                 });
-                                
+
                                 // Create new item
-                                const newItem = { 
-                                  name: "", 
-                                  amount: 0, 
-                                  description: "", 
+                                const newItem = {
+                                  name: "",
+                                  amount: 0,
+                                  description: "",
                                   _tempId: `item-${Date.now()}-${Math.random()}`
                                 };
-                                
+
                                 const newItems = [...preservedItems, newItem];
-                                
+
                                 // Store for recovery
                                 previousItemsRef.current = preservedItems;
-                                
+
                                 // ONLY use field.onChange - this is the correct way to update form fields
                                 // Using setValue can cause conflicts and state loss
                                 field.onChange(newItems);
-                                
+
                                 // Initialize display state
                                 const newIndex = newItems.length - 1;
                                 setFundRequestItemAmounts(prev => ({
                                   ...prev,
                                   [newIndex]: ""
                                 }));
-                                
+
                                 // Verify values are preserved after a short delay
                                 setTimeout(() => {
                                   const verifyItems = form.getValues("fundRequest.items") || [];
@@ -1299,7 +1300,7 @@ export default function EventManagement() {
                               Thêm hạng mục
                             </Button>
                           </div>
-                          
+
                           {items.length === 0 ? (
                             <div className="text-sm text-muted-foreground py-4 border rounded-md text-center">
                               Chưa có hạng mục nào. Vui lòng thêm ít nhất 1 hạng mục.
@@ -1309,7 +1310,7 @@ export default function EventManagement() {
                               {items.map((item, index) => {
                                 // Use a stable key - prefer tempId if available, otherwise use index
                                 const itemKey = (item as any)._tempId || `item-${index}`;
-                                
+
                                 return (
                                   <Card key={itemKey} className="p-4">
                                     <div className="flex items-start justify-between mb-4">
@@ -1342,7 +1343,7 @@ export default function EventManagement() {
                                         </Button>
                                       )}
                                     </div>
-                                    
+
                                     <div className="space-y-4">
                                       <FormField
                                         control={form.control}
@@ -1364,10 +1365,10 @@ export default function EventManagement() {
                                         render={({ field: itemField }) => {
                                           const currentValue = itemField.value || 0;
                                           // Use display state if available, otherwise format from form value
-                                          const displayValue = fundRequestItemAmounts[index] !== undefined 
+                                          const displayValue = fundRequestItemAmounts[index] !== undefined
                                             ? fundRequestItemAmounts[index]
                                             : (currentValue > 0 ? formatVND(currentValue) : "");
-                                          
+
                                           return (
                                             <FormItem>
                                               <FormLabel>Số tiền (VNĐ) <span className="text-destructive">*</span></FormLabel>
@@ -1380,14 +1381,14 @@ export default function EventManagement() {
                                                     value={displayValue}
                                                     onChange={(e) => {
                                                       const inputValue = e.target.value;
-                                                      
+
                                                       // If user is typing formatted value, extract digits
                                                       const rawValue = inputValue.replace(/[^\d]/g, '');
                                                       const numValue = parseInt(rawValue) || 0;
-                                                      
+
                                                       // Update form value immediately
                                                       itemField.onChange(numValue);
-                                                      
+
                                                       // Update display state - format if has value, otherwise keep what user typed (for deletion)
                                                       if (rawValue) {
                                                         const formatted = formatVND(numValue);
@@ -1447,10 +1448,10 @@ export default function EventManagement() {
                                           <FormItem>
                                             <FormLabel>Mô tả</FormLabel>
                                             <FormControl>
-                                              <Textarea 
-                                                placeholder="VD: Chi phí thuê phòng trong 4 giờ" 
-                                                rows={2} 
-                                                {...itemField} 
+                                              <Textarea
+                                                placeholder="VD: Chi phí thuê phòng trong 4 giờ"
+                                                rows={2}
+                                                {...itemField}
                                               />
                                             </FormControl>
                                             <FormMessage />
@@ -1461,7 +1462,7 @@ export default function EventManagement() {
                                   </Card>
                                 );
                               })}
-                              
+
                               {/* Display total amount reactively */}
                               <FundRequestTotalDisplay form={form} />
                             </div>
@@ -1489,15 +1490,15 @@ export default function EventManagement() {
               </form>
             </Form>
             <DialogFooter>
-              <Button 
+              <Button
                 type="button"
-                variant="outline" 
-                onClick={() => { setShowCreateDialog(false); resetForm(); }} 
+                variant="outline"
+                onClick={() => { setShowCreateDialog(false); resetForm(); }}
                 disabled={isSubmitting}
               >
                 Hủy
               </Button>
-              <Button 
+              <Button
                 type="submit"
                 form="event-form"
                 disabled={isSubmitting}
