@@ -35,6 +35,7 @@ export default function JoinRequests() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
+  const [loadingAction, setLoadingAction] = useState<'approve' | 'reject' | null>(null);
 
   const queryClient = useQueryClient();
   const { data: appsResp } = useQuery({
@@ -71,17 +72,27 @@ export default function JoinRequests() {
   });
 
   const handleApprove = async (request: JoinRequestWithProfile) => {
-    await reviewMutation.mutateAsync({ applicationId: request.id, action: 'approve', reviewNotes: reviewNotes.trim() || undefined });
-    toast({ title: "Thành công", description: `Đã duyệt đơn của ${request.profile.full_name}` });
-    setShowDetailDialog(false);
-    setReviewNotes("");
+    setLoadingAction('approve');
+    try {
+      await reviewMutation.mutateAsync({ applicationId: request.id, action: 'approve', reviewNotes: reviewNotes.trim() || undefined });
+      toast({ title: "Thành công", description: `Đã duyệt đơn của ${request.profile.full_name}` });
+      setShowDetailDialog(false);
+      setReviewNotes("");
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const handleReject = async (request: JoinRequestWithProfile) => {
-    await reviewMutation.mutateAsync({ applicationId: request.id, action: 'reject', reviewNotes: reviewNotes.trim() || undefined });
-    toast({ title: "Đã từ chối", description: `Đã từ chối đơn của ${request.profile.full_name}` });
-    setShowDetailDialog(false);
-    setReviewNotes("");
+    setLoadingAction('reject');
+    try {
+      await reviewMutation.mutateAsync({ applicationId: request.id, action: 'reject', reviewNotes: reviewNotes.trim() || undefined });
+      toast({ title: "Đã từ chối", description: `Đã từ chối đơn của ${request.profile.full_name}` });
+      setShowDetailDialog(false);
+      setReviewNotes("");
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -243,10 +254,10 @@ export default function JoinRequests() {
                 <>
                   <Button
                     variant="outline"
-                    onClick={() => handleReject(selectedRequest)}
-                    disabled={reviewMutation.isPending}
+                    onClick={() => handleReject(selectedRequest!)}
+                    disabled={!!loadingAction}
                   >
-                    {reviewMutation.isPending ? (
+                    {loadingAction === 'reject' ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <X className="mr-2 h-4 w-4" />
@@ -254,11 +265,11 @@ export default function JoinRequests() {
                     Từ chối
                   </Button>
                   <Button
-                    onClick={() => handleApprove(selectedRequest)}
+                    onClick={() => handleApprove(selectedRequest!)}
                     className="bg-success hover:bg-success/90"
-                    disabled={reviewMutation.isPending}
+                    disabled={!!loadingAction}
                   >
-                    {reviewMutation.isPending ? (
+                    {loadingAction === 'approve' ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <Check className="mr-2 h-4 w-4" />
