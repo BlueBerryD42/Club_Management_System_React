@@ -101,6 +101,7 @@ interface Event {
   isActive: boolean;
   attendees: number;
   visibleFrom: string | null;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DONE';
 }
 
 // Zod Schema for Event Form
@@ -332,6 +333,7 @@ export default function EventManagement() {
         isActive: event.isActive,
         attendees: event._count?.tickets || 0,
         visibleFrom: event.visibleFrom,
+        approvalStatus: event.approvalStatus,
       }));
       setEvents(mappedEvents);
     } catch (error: any) {
@@ -470,17 +472,30 @@ export default function EventManagement() {
     const startTime = new Date(event.startTime);
     const endTime = event.endTime ? new Date(event.endTime) : null;
     const visibleFrom = event.visibleFrom ? new Date(event.visibleFrom) : null;
+    const approvalStatus = event.approvalStatus;
 
-    // Check approval status first (for pending/rejected events)
-    if ((event as any).approvalStatus === 'PENDING') {
+    // Check approval status first (for pending/rejected/done events)
+    if (approvalStatus === 'PENDING') {
       return <Badge className="bg-warning/20 text-warning">Chờ duyệt quỹ</Badge>;
     }
     
-    if ((event as any).approvalStatus === 'REJECTED') {
+    if (approvalStatus === 'REJECTED') {
       return <Badge className="bg-destructive/20 text-destructive">Đã từ chối</Badge>;
     }
 
-    if (!event.isActive) {
+    // Check if event has finished successfully (DONE status)
+    if (approvalStatus === 'DONE') {
+      return <Badge variant="outline">Đã kết thúc</Badge>;
+    }
+
+    // Check if event has ended (passed endTime)
+    if (endTime && now >= endTime) {
+      return <Badge variant="outline">Đã kết thúc</Badge>;
+    }
+
+    // Only show "Đã hủy" if isActive is false AND event hasn't finished (not ended)
+    // Note: approvalStatus !== 'DONE' check is not needed here since we already handled 'DONE' above
+    if (!event.isActive && (!endTime || now < endTime)) {
       return <Badge className="bg-destructive/20 text-destructive">Đã hủy</Badge>;
     }
 
@@ -497,11 +512,6 @@ export default function EventManagement() {
     // Check if event is currently happening
     if (endTime && now >= startTime && now < endTime) {
       return <Badge className="bg-success/20 text-success">Đang diễn ra</Badge>;
-    }
-
-    // Check if event has ended
-    if (endTime && now >= endTime) {
-      return <Badge variant="outline">Đã kết thúc</Badge>;
     }
 
     // Fallback: event is happening (no end time specified)

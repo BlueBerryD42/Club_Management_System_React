@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { transactionApi } from "@/services/transaction.service";
+import { treasurerService } from "@/services/treasurer.service";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,19 +37,19 @@ import {
 } from "@/components/ui/table";
 
 export default function TransactionDetailPage() {
-  const { transactionId } = useParams<{ transactionId: string }>();
+  const { clubId, transactionId } = useParams<{ clubId: string; transactionId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const { data: transactionData, isLoading, error } = useQuery({
-    queryKey: ["transaction-detail", transactionId],
+    queryKey: ["treasurer-transaction-detail", clubId, transactionId],
     queryFn: async () => {
-      if (!transactionId) return null;
-      const response = await transactionApi.getTransaction(transactionId);
-      return response.data.data || response.data;
+      if (!clubId || !transactionId) return null;
+      const response = await treasurerService.getTransactionDetail(clubId, transactionId);
+      return response.data || response;
     },
-    enabled: !!transactionId,
+    enabled: !!clubId && !!transactionId,
   });
 
   const transaction = transactionData;

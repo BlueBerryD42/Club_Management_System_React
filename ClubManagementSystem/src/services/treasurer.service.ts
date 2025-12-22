@@ -291,6 +291,15 @@ export const treasurerService = {
   },
 
   /**
+   * Get detailed transaction information for a club (Treasurer only)
+   * Returns full details including tickets, membership, ledger entries, PayOS data
+   */
+  getTransactionDetail: async (clubId: string, transactionId: string): Promise<any> => {
+    const response = await apiClient.get(`/clubs/${clubId}/transactions/${transactionId}`);
+    return response.data;
+  },
+
+  /**
    * Mark fund request as disbursed
    * Note: This endpoint might need to be created in the backend
    */
