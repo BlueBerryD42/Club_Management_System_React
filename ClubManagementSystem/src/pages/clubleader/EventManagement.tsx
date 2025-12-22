@@ -493,8 +493,9 @@ export default function EventManagement() {
       return <Badge variant="outline">Đã kết thúc</Badge>;
     }
 
-    // Only show "Đã hủy" if isActive is false AND event hasn't finished (not DONE and not ended)
-    if (!event.isActive && approvalStatus !== 'DONE' && (!endTime || now < endTime)) {
+    // Only show "Đã hủy" if isActive is false AND event hasn't finished (not ended)
+    // Note: approvalStatus !== 'DONE' check is not needed here since we already handled 'DONE' above
+    if (!event.isActive && (!endTime || now < endTime)) {
       return <Badge className="bg-destructive/20 text-destructive">Đã hủy</Badge>;
     }
 
